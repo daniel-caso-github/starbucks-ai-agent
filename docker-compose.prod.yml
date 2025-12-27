@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: starbucks-app-prod
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+      - chromadb
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  mongodb:
+    image: mongo:7
+    container_name: starbucks-mongodb-prod
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: starbucks_agent
+    restart: always
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: starbucks-chromadb-prod
+    ports:
+      - '8000:8000'
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      ANONYMIZED_TELEMETRY: 'false'
+    restart: always
+
+volumes:
+  mongodb_data:
+  chroma_data:

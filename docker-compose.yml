@@ -1,7 +1,30 @@
 version: '3.8'
 
 services:
-  # MongoDB - Persistent storage for orders and conversations
+  # ===========================================
+  # NestJS Application
+  # ===========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: starbucks-app
+    ports:
+      - '3000:3000'
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+      - chromadb
+    restart: unless-stopped
+
+  # ===========================================
+  # MongoDB - Orders and conversation history
+  # ===========================================
   mongodb:
     image: mongo:7
     container_name: starbucks-mongodb
@@ -13,7 +36,9 @@ services:
       MONGO_INITDB_DATABASE: starbucks_agent
     restart: unless-stopped
 
-  # ChromaDB - Vector database for semantic search (RAG)
+  # ===========================================
+  # ChromaDB - Vector database for RAG
+  # ===========================================
   chromadb:
     image: chromadb/chroma:latest
     container_name: starbucks-chromadb
