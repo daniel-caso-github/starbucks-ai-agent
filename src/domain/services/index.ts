@@ -1,2 +1,1 @@
-// Domain services will be exported here
-export {};
+export { OrderValidatorService } from './order-validator.service';

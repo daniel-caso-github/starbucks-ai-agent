@@ -1,17 +1,16 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  // Basic configuration
   moduleFileExtensions: ['js', 'json', 'ts'],
   testEnvironment: 'node',
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
 
-  // Test file patterns
-  rootDir: '.',
-  testRegex: '.*\\.spec\\.ts$',
+  // This pattern finds both *.spec.ts files AND files in __tests__ folders
+  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.ts$',
 
-  // Path aliases (must match tsconfig.json paths)
+  rootDir: '.',
+
   moduleNameMapper: {
     '^@domain/(.*)$': '<rootDir>/src/domain/$1',
     '^@application/(.*)$': '<rootDir>/src/application/$1',
@@ -19,17 +18,16 @@ module.exports = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
   },
 
-  // Coverage configuration
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
     '!src/**/*.module.ts',
     '!src/main.ts',
     '!src/**/index.ts',
+    '!src/**/__tests__/**', // Exclude test files from coverage
   ],
   coverageDirectory: './coverage',
   coverageReporters: ['text', 'lcov', 'html'],
 
-  // Coverage thresholds (enforces quality)
   coverageThreshold: {
     global: {
       branches: 80,
