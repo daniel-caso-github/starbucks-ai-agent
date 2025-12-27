@@ -1,2 +1,3 @@
-// Entities will be exported here
-export {};
+export { Drink } from './drink.entity';
+export { Order } from './order.entity';
+export { Conversation } from './conversation.entity';
