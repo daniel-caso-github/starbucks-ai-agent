@@ -1,5 +1,5 @@
-import { Drink } from '../drink.entity';
-import { CustomizationOptions, DrinkId, Money } from '../../value-objects';
+import { Drink } from '@domain/entities';
+import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
 
 describe('Drink', () => {
   describe('creation', () => {

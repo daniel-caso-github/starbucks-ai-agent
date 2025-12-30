@@ -1,5 +1,5 @@
 import { Conversation } from '@domain/entities';
-import { ConversationId, Message, OrderId } from '../../value-objects';
+import { ConversationId, Message, OrderId } from '@domain/value-objects';
 
 describe('Conversation', () => {
   describe('creation', () => {

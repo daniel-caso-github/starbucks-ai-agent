@@ -1,26 +1,7 @@
 import { ConversationId } from '@domain/value-objects';
 import { Conversation } from '@domain/entities';
 
-/**
- * Outbound port for Conversation persistence operations.
- *
- * This interface defines the contract for storing and retrieving
- * conversation history. The conversation maintains the context
- * between the user and the AI barista across multiple interactions.
- *
- * @example
- * ```typescript
- * // Start or continue a conversation:
- * let conversation = await this.conversationRepository.findById(threadId);
- * if (!conversation) {
- *   conversation = Conversation.create(threadId);
- * }
- *
- * conversation.addUserMessage("I want a latte");
- * await this.conversationRepository.save(conversation);
- * ```
- */
-export interface IConversationRepository {
+export interface IConversationRepositoryPort {
   /**
    * Persists a conversation to storage.
    * If the conversation already exists, it will be updated with new messages.

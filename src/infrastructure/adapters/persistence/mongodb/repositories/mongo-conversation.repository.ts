@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Conversation } from '@domain/entities';
 import { ConversationId } from '@domain/value-objects';
-import { IConversationRepository } from '@application/ports/outbound';
+import { IConversationRepositoryPort } from '@application/ports/outbound';
 import { ConversationDocument, ConversationDocumentType } from '../schemas';
 import { ConversationMapper } from '../mappers';
 
@@ -12,7 +12,7 @@ import { ConversationMapper } from '../mappers';
  * Handles persistence of Conversation entities using Mongoose.
  */
 @Injectable()
-export class MongoConversationRepository implements IConversationRepository {
+export class MongoConversationRepository implements IConversationRepositoryPort {
   constructor(
     @InjectModel(ConversationDocument.name)
     private readonly conversationModel: Model<ConversationDocumentType>,

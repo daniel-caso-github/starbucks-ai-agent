@@ -1,6 +1,6 @@
-import { Order } from '../order.entity';
-import { DrinkId, DrinkSize, Money, OrderId, OrderItem, OrderStatus } from '../../value-objects';
-import { InvalidOrderException } from '../../exceptions';
+import { Order } from '@domain/entities';
+import { DrinkId, DrinkSize, Money, OrderId, OrderItem, OrderStatus } from '@domain/value-objects';
+import { InvalidOrderException } from '@domain/exceptions';
 
 describe('Order', () => {
   // Helper function to create a valid OrderItem

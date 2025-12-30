@@ -1,7 +1,7 @@
 import { OrderValidatorService } from '@domain/services';
-import { Drink } from '../../entities';
-import { CustomizationOptions, DrinkSize, Money, OrderItem } from '../../value-objects';
-import { InvalidOrderException } from '../../exceptions';
+import { Drink } from '@domain/entities';
+import { CustomizationOptions, DrinkSize, Money, OrderItem } from '@domain/value-objects';
+import { InvalidOrderException } from '@domain/exceptions';
 
 describe('OrderValidatorService', () => {
   let validator: OrderValidatorService;

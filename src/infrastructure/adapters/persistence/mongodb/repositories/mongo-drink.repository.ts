@@ -5,7 +5,7 @@ import { Drink } from '@domain/entities';
 import { DrinkId } from '@domain/value-objects';
 import { DrinkDocument, DrinkDocumentType } from '../schemas';
 import { DrinkMapper } from '../mappers';
-import { IDrinkRepository } from '@application/ports/outbound/drink-repository.port';
+import { IDrinkRepositoryPort } from '@application/ports/outbound/drink-repository.port';
 
 /**
  * MongoDB repository for Drink entities.
@@ -13,7 +13,7 @@ import { IDrinkRepository } from '@application/ports/outbound/drink-repository.p
  * Note: Semantic search is handled by ChromaDrinkSearcher, not this repository.
  */
 @Injectable()
-export class MongoDrinkRepository implements IDrinkRepository {
+export class MongoDrinkRepository implements IDrinkRepositoryPort {
   constructor(
     @InjectModel(DrinkDocument.name)
     private readonly drinkModel: Model<DrinkDocumentType>,

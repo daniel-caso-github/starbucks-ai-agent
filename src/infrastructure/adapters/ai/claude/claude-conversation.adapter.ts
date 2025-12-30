@@ -3,14 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { Drink } from '@domain/entities';
 import { DrinkSize } from '@domain/value-objects';
+import { IConversationAIPort } from '@application/ports/outbound';
 import {
-  IConversationAI,
-  GenerateResponseInput,
-  GenerateResponseOutput,
-  ExtractedOrderInfo,
-  ConversationIntent,
-  SuggestedAction,
-} from '@application/ports/outbound';
+  ConversationIntentType,
+  ExtractedOrderInfoDto,
+  GenerateResponseInputDto,
+  GenerateResponseOutputDto,
+  SuggestedActionType,
+} from '@application/dtos/conversation-ai.dto';
 
 /**
  * Interface for the parsed JSON from Claude's order extraction.
@@ -29,7 +29,7 @@ interface ParsedOrderJson {
 }
 
 @Injectable()
-export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit {
+export class ClaudeConversationAdapter implements IConversationAIPort, OnModuleInit {
   private readonly logger = new Logger(ClaudeConversationAdapter.name);
   private client!: Anthropic;
   private readonly model = 'claude-sonnet-4-20250514';
@@ -48,7 +48,7 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
     this.logger.log('Claude AI adapter initialized');
   }
 
-  async generateResponse(input: GenerateResponseInput): Promise<GenerateResponseOutput> {
+  async generateResponse(input: GenerateResponseInputDto): Promise<GenerateResponseOutputDto> {
     const systemPrompt = this.buildSystemPrompt(input.relevantDrinks, input.currentOrderSummary);
     const userMessage = this.buildUserMessage(input.userMessage, input.conversationHistory);
 
@@ -73,7 +73,7 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
   async extractOrderFromMessage(
     message: string,
     availableDrinks: Drink[],
-  ): Promise<ExtractedOrderInfo | null> {
+  ): Promise<ExtractedOrderInfoDto | null> {
     const drinkList = availableDrinks.map((d) => d.name).join(', ');
 
     const prompt = `Analyze this customer message and extract order information.
@@ -115,7 +115,10 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
     }
   }
 
-  async detectIntent(message: string, conversationHistory?: string): Promise<ConversationIntent> {
+  async detectIntent(
+    message: string,
+    conversationHistory?: string,
+  ): Promise<ConversationIntentType> {
     const context = conversationHistory ? `Previous conversation:\n${conversationHistory}\n\n` : '';
 
     const prompt = `${context}Analyze this customer message and determine their intent.
@@ -144,7 +147,7 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
       const text = textContent && 'text' in textContent ? textContent.text : '';
       const intent = text.trim().toLowerCase();
 
-      const validIntents: ConversationIntent[] = [
+      const validIntents: ConversationIntentType[] = [
         'order_drink',
         'modify_order',
         'cancel_order',
@@ -154,8 +157,8 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
         'unknown',
       ];
 
-      return validIntents.includes(intent as ConversationIntent)
-        ? (intent as ConversationIntent)
+      return validIntents.includes(intent as ConversationIntentType)
+        ? (intent as ConversationIntentType)
         : 'unknown';
     } catch (error) {
       this.logger.error('Error detecting intent', error);
@@ -197,10 +200,10 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
   private async parseResponse(
     responseText: string,
     originalMessage: string,
-  ): Promise<GenerateResponseOutput> {
+  ): Promise<GenerateResponseOutputDto> {
     const intent = await this.detectIntent(originalMessage);
 
-    let extractedOrder: ExtractedOrderInfo | null = null;
+    let extractedOrder: ExtractedOrderInfoDto | null = null;
     if (intent === 'order_drink' || intent === 'modify_order') {
       extractedOrder = await this.extractOrderFromMessage(originalMessage, []);
     }
@@ -215,7 +218,7 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
     };
   }
 
-  private parseExtractedOrder(jsonText: string): ExtractedOrderInfo | null {
+  private parseExtractedOrder(jsonText: string): ExtractedOrderInfoDto | null {
     try {
       const cleanJson = jsonText
         .replace(/```json\n?/g, '')
@@ -252,10 +255,10 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
   }
 
   private generateSuggestedActions(
-    intent: ConversationIntent,
-    extractedOrder: ExtractedOrderInfo | null,
-  ): SuggestedAction[] {
-    const actions: SuggestedAction[] = [];
+    intent: ConversationIntentType,
+    extractedOrder: ExtractedOrderInfoDto | null,
+  ): SuggestedActionType[] {
+    const actions: SuggestedActionType[] = [];
 
     switch (intent) {
       case 'order_drink':
@@ -298,7 +301,7 @@ export class ClaudeConversationAdapter implements IConversationAI, OnModuleInit 
     return actions;
   }
 
-  private createErrorResponse(): GenerateResponseOutput {
+  private createErrorResponse(): GenerateResponseOutputDto {
     return {
       message: "I'm sorry, I'm having trouble right now. Could you please repeat that?",
       intent: 'unknown',

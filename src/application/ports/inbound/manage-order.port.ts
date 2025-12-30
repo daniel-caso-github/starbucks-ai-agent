@@ -1,119 +1,13 @@
-import { OrderSummary } from './process-message.port';
+import {
+  AddItemInputDto,
+  ManageOrderResultDto,
+  OrderActionInputDto,
+  RemoveItemInputDto,
+  UpdateItemInputDto,
+} from '@application/dtos/manage-order.dto';
+import { OrderSummaryDto } from '@application/dtos';
 
-/**
- * Input for adding an item to an order.
- */
-export interface AddItemInput {
-  /** Conversation/order context identifier */
-  conversationId: string;
-
-  /** The drink to add */
-  drinkId: string;
-
-  /** Quantity to add (default: 1) */
-  quantity?: number;
-
-  /** Selected size */
-  size?: 'tall' | 'grande' | 'venti';
-
-  /** Customizations to apply */
-  customizations?: {
-    milk?: string;
-    syrup?: string;
-    sweetener?: string;
-    topping?: string;
-  };
-}
-
-/**
- * Input for updating an item in the order.
- */
-export interface UpdateItemInput {
-  /** Conversation/order context identifier */
-  conversationId: string;
-
-  /** The drink item to update */
-  drinkId: string;
-
-  /** New quantity (if provided) */
-  quantity?: number;
-
-  /** New size (if provided) */
-  size?: 'tall' | 'grande' | 'venti';
-
-  /** Updated customizations (merged with existing) */
-  customizations?: {
-    milk?: string;
-    syrup?: string;
-    sweetener?: string;
-    topping?: string;
-  };
-}
-
-/**
- * Input for removing an item from the order.
- */
-export interface RemoveItemInput {
-  /** Conversation/order context identifier */
-  conversationId: string;
-
-  /** The drink item to remove */
-  drinkId: string;
-}
-
-/**
- * Input for order lifecycle operations.
- */
-export interface OrderActionInput {
-  /** Conversation/order context identifier */
-  conversationId: string;
-}
-
-/**
- * Result of an order management operation.
- */
-export interface ManageOrderResult {
-  /** Whether the operation was successful */
-  success: boolean;
-
-  /** Human-readable message about the operation */
-  message: string;
-
-  /** Updated order summary after the operation */
-  order: OrderSummary | null;
-}
-
-/**
- * Inbound port for direct order management operations.
- *
- * While IProcessMessage handles conversational ordering through AI,
- * this port provides direct programmatic control over orders.
- * It's useful for:
- * - UI buttons (Confirm, Cancel, Remove Item)
- * - API integrations
- * - Admin operations
- * - Testing
- *
- * All operations validate business rules through the domain layer,
- * so invalid operations (like confirming an empty order) will fail
- * with appropriate error messages.
- *
- * @example
- * ```typescript
- * // In a controller with "Confirm Order" button:
- * @Post('orders/:conversationId/confirm')
- * async confirmOrder(@Param('conversationId') conversationId: string) {
- *   const result = await this.manageOrder.confirmOrder({ conversationId });
- *
- *   if (!result.success) {
- *     throw new BadRequestException(result.message);
- *   }
- *
- *   return result.order;
- * }
- * ```
- */
-export interface IManageOrder {
+export interface IManageOrderPort {
   /**
    * Adds an item to the current order.
    * If no order exists for the conversation, one will be created.
@@ -132,7 +26,7 @@ export interface IManageOrder {
    * });
    * ```
    */
-  addItem(input: AddItemInput): Promise<ManageOrderResult>;
+  addItem(input: AddItemInputDto): Promise<ManageOrderResultDto>;
 
   /**
    * Updates an existing item in the order.
@@ -142,7 +36,7 @@ export interface IManageOrder {
    * @returns Promise resolving to the operation result
    * @throws If the item doesn't exist in the order
    */
-  updateItem(input: UpdateItemInput): Promise<ManageOrderResult>;
+  updateItem(input: UpdateItemInputDto): Promise<ManageOrderResultDto>;
 
   /**
    * Removes an item from the order.
@@ -151,7 +45,7 @@ export interface IManageOrder {
    * @returns Promise resolving to the operation result
    * @throws If the item doesn't exist in the order
    */
-  removeItem(input: RemoveItemInput): Promise<ManageOrderResult>;
+  removeItem(input: RemoveItemInputDto): Promise<ManageOrderResultDto>;
 
   /**
    * Confirms the current order, transitioning it from 'pending' to 'confirmed'.
@@ -161,7 +55,7 @@ export interface IManageOrder {
    * @returns Promise resolving to the operation result
    * @throws If no pending order exists or order is empty
    */
-  confirmOrder(input: OrderActionInput): Promise<ManageOrderResult>;
+  confirmOrder(input: OrderActionInputDto): Promise<ManageOrderResultDto>;
 
   /**
    * Cancels the current order.
@@ -171,7 +65,7 @@ export interface IManageOrder {
    * @returns Promise resolving to the operation result
    * @throws If no order exists or order is already completed
    */
-  cancelOrder(input: OrderActionInput): Promise<ManageOrderResult>;
+  cancelOrder(input: OrderActionInputDto): Promise<ManageOrderResultDto>;
 
   /**
    * Retrieves the current order for a conversation.
@@ -180,7 +74,7 @@ export interface IManageOrder {
    * @param conversationId - The conversation identifier
    * @returns Promise resolving to the order summary or null
    */
-  getCurrentOrder(conversationId: string): Promise<OrderSummary | null>;
+  getCurrentOrder(conversationId: string): Promise<OrderSummaryDto | null>;
 
   /**
    * Clears all items from the current order without cancelling it.
@@ -189,5 +83,5 @@ export interface IManageOrder {
    * @param input - The conversation identifier
    * @returns Promise resolving to the operation result
    */
-  clearOrder(input: OrderActionInput): Promise<ManageOrderResult>;
+  clearOrder(input: OrderActionInputDto): Promise<ManageOrderResultDto>;
 }

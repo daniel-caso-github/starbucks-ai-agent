@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Order } from '@domain/entities';
 import { OrderId } from '@domain/value-objects';
-import { IOrderRepository } from '@application/ports/outbound';
+import { IOrderRepositoryPort } from '@application/ports/outbound';
 import { OrderDocument, OrderDocumentType } from '../schemas';
 import { OrderMapper } from '../mappers';
 
@@ -12,7 +12,7 @@ import { OrderMapper } from '../mappers';
  * Handles persistence of Order entities using Mongoose.
  */
 @Injectable()
-export class MongoOrderRepository implements IOrderRepository {
+export class MongoOrderRepository implements IOrderRepositoryPort {
   constructor(
     @InjectModel(OrderDocument.name)
     private readonly orderModel: Model<OrderDocumentType>,

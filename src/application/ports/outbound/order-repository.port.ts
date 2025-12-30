@@ -1,24 +1,7 @@
 import { Order } from '@domain/entities';
 import { OrderId } from '@domain/value-objects';
 
-/**
- * Outbound port for Order persistence operations.
- *
- * This interface defines the contract for storing and retrieving orders.
- * Implementations may use MongoDB, PostgreSQL, or any other storage mechanism.
- *
- * @example
- * ```typescript
- * // In a use case:
- * const order = Order.create();
- * order.addItem(item);
- * await this.orderRepository.save(order);
- *
- * // Later:
- * const retrieved = await this.orderRepository.findById(order.id);
- * ```
- */
-export interface IOrderRepository {
+export interface IOrderRepositoryPort {
   /**
    * Persists an order to the storage.
    * If the order already exists, it will be updated.

@@ -1,5 +1,5 @@
-import { Money } from './../money.vo';
-import { InvalidValueException } from '../../exceptions';
+import { Money } from '@domain/value-objects';
+import { InvalidValueException } from '@domain/exceptions';
 
 describe('Money', () => {
   describe('creation', () => {
