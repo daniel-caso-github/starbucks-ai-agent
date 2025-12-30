@@ -17,7 +17,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed": "ts-node -r tsconfig-paths/register src/cli.ts seed",
+    "seed:clear": "ts-node -r tsconfig-paths/register src/cli.ts seed --clear",
+    "seed:stats": "ts-node -r tsconfig-paths/register src/cli.ts seed --stats",
+    "search:test": "ts-node -r tsconfig-paths/register src/cli.ts search-test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -28,6 +32,8 @@
     "@nestjs/platform-express": "^10.0.0",
     "chromadb": "^3.2.0",
     "mongoose": "^9.0.2",
+    "nest-commander": "^3.20.1",
+    "openai": "^6.15.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "uuid": "^13.0.0"

@@ -1,10 +1,23 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChromaClient, Collection, Metadata, Where } from 'chromadb';
+import { ChromaClient, Collection, EmbeddingFunction, Metadata, Where } from 'chromadb';
 import { Drink } from '@domain/entities';
 import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
-import { IDrinkSearcherPort } from '@application/ports/outbound';
+import { IDrinkSearcherPort, IEmbeddingGeneratorPort } from '@application/ports/outbound';
 import { DrinkSearchFiltersDto, DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
+
+/**
+ * Custom embedding function that wraps our IEmbeddingGeneratorPort
+ * to be compatible with ChromaDB's IEmbeddingFunction interface.
+ */
+class CustomEmbeddingFunction implements EmbeddingFunction {
+  constructor(private readonly embeddingGenerator: IEmbeddingGeneratorPort) {}
+
+  async generate(texts: string[]): Promise<number[][]> {
+    const results = await this.embeddingGenerator.generateBatch(texts);
+    return results.map((r) => r.embedding);
+  }
+}
 
 /**
  * ChromaDB implementation of IDrinkSearcher.
@@ -12,6 +25,9 @@ import { DrinkSearchFiltersDto, DrinkSearchResultDto } from '@application/dtos/d
  * This adapter uses ChromaDB for semantic (vector) search of drinks.
  * It stores drink embeddings and metadata, enabling natural language
  * queries like "something sweet and cold" to find relevant drinks.
+ *
+ * Embeddings are generated using the IEmbeddingGeneratorPort, allowing
+ * flexibility in the embedding strategy (Claude, OpenAI, local models, etc.)
  */
 @Injectable()
 export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
@@ -19,8 +35,13 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
   private client!: ChromaClient;
   private collection!: Collection;
   private readonly collectionName = 'drinks';
+  private embeddingFunction!: EmbeddingFunction;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject('IEmbeddingGenerator')
+    private readonly embeddingGenerator: IEmbeddingGeneratorPort,
+  ) {}
 
   /**
    * Initialize ChromaDB connection when the module starts.
@@ -34,12 +55,16 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
       path: chromaHost,
     });
 
-    // Get or create the drinks collection
+    // Create custom embedding function using our adapter
+    this.embeddingFunction = new CustomEmbeddingFunction(this.embeddingGenerator);
+
+    // Get or create the drinks collection with custom embedding function
     this.collection = await this.client.getOrCreateCollection({
       name: this.collectionName,
       metadata: {
         description: 'Starbucks drinks menu for semantic search',
       },
+      embeddingFunction: this.embeddingFunction,
     });
 
     this.logger.log(`ChromaDB collection '${this.collectionName}' ready`);
