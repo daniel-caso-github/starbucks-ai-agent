@@ -32,3 +32,4 @@ coverage/
 # Docker volumes (local data)
 mongodb_data/
 chroma_data/
+.claude/
