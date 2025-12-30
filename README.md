@@ -1,170 +1,146 @@
 # Starbucks AI Agent
 
-An AI-powered Starbucks barista agent built with NestJS, Claude AI, MongoDB, and ChromaDB. Uses hexagonal architecture and Domain-Driven Design principles.
+Agente conversacional de IA que simula un barista de Starbucks. Permite a los usuarios explorar el menú de bebidas, hacer preguntas en lenguaje natural y realizar pedidos a través de una interfaz conversacional.
 
-## 🏗️ Architecture
+## Características Principales
 
-This project follows **Hexagonal Architecture** (Ports & Adapters) with clear separation of concerns:
+- **Búsqueda Semántica**: Encuentra bebidas usando lenguaje natural (ej: "algo frío y refrescante", "bebida de otoño"). Utiliza embeddings de OpenAI y ChromaDB para entender el significado detrás de las consultas.
+
+- **Conversación con IA**: Interactúa con Claude AI para procesar mensajes, recomendar bebidas y guiar el proceso de pedido.
+
+- **Gestión de Pedidos**: Crea y gestiona pedidos con opciones de personalización como tamaño, tipo de leche, jarabes y toppings.
+
+- **Persistencia de Datos**: Almacena órdenes, conversaciones y catálogo de bebidas en MongoDB. Los vectores de búsqueda se almacenan en ChromaDB.
+
+## Arquitectura
+
+El proyecto implementa **Arquitectura Hexagonal** (Ports & Adapters) con principios de Domain-Driven Design:
+
 ```
-src/
-├── domain/                 # 🎯 Core business logic (NO external dependencies)
-│   ├── entities/           # Order, Drink, Conversation
-│   ├── value-objects/      # OrderId, Money, DrinkSize, etc.
-│   ├── exceptions/         # Domain-specific errors
-│   └── services/           # Domain services (OrderValidatorService)
-│
-├── application/            # 🔄 Use cases and ports (coming in Phase 3)
-│   ├── ports/
-│   │   ├── inbound/        # Interfaces for incoming requests
-│   │   └── outbound/       # Interfaces for external services
-│   ├── use-cases/          # Application business logic
-│   └── dtos/               # Data transfer objects
-│
-├── infrastructure/         # 🔌 External implementations (coming in Phase 4)
-│   ├── adapters/
-│   │   ├── persistence/    # MongoDB, ChromaDB implementations
-│   │   ├── ai/             # Claude AI adapter
-│   │   └── http/           # REST controllers
-│   └── config/             # Environment configuration
-│
-└── shared/                 # 🛠️ Cross-cutting utilities
+┌─────────────────────────────────────────────────────────────────┐
+│                        INFRASTRUCTURE                           │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐     │
+│  │  HTTP     │  │  MongoDB  │  │  ChromaDB │  │    AI     │     │
+│  │Controllers│  │  Repos    │  │  Adapter  │  │ Adapters  │     │
+│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘     │
+│        │              │              │              │           │
+│        ▼              ▼              ▼              ▼           │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    PORTS (Interfaces)                   │    │
+│  │         Inbound Ports          Outbound Ports           │    │
+│  └─────────────────────────┬───────────────────────────────┘    │
+└────────────────────────────┼────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        APPLICATION                               │
+│  ┌───────────────────────────────────────────────────────────┐   │
+│  │                      Use Cases                            │   │
+│  │  ProcessMessage │ SearchDrinks │ CreateOrder │ GetHistory │   │
+│  └─────────────────────────┬─────────────────────────────────┘   │
+└────────────────────────────┼─────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          DOMAIN                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐      │
+│  │  Entities   │  │Value Objects│  │  Domain Services    │      │
+│  │ Order,Drink │  │ Money,Size  │  │  OrderValidator     │      │
+│  │ Conversation│  │ DrinkId     │  │                     │      │ 
+│  └─────────────┘  └─────────────┘  └─────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Dependency Rules
+| Capa | Responsabilidad |
+|------|-----------------|
+| **Domain** | Entidades (Order, Drink, Conversation), Value Objects y reglas de negocio. Sin dependencias externas. |
+| **Application** | Casos de uso, puertos (interfaces) y DTOs. Orquesta el dominio. |
+| **Infrastructure** | Adaptadores para MongoDB, ChromaDB, Claude AI y OpenAI. Implementa los puertos. |
 
-- ❌ Domain CANNOT import from Application or Infrastructure
-- ❌ Application CANNOT import from Infrastructure
-- ✅ Infrastructure CAN import from Application and Domain
-- ✅ Application CAN import from Domain
+### Reglas de Dependencia
 
-## 🚀 Getting Started
+El dominio es el núcleo y no depende de nada externo. La aplicación depende solo del dominio. La infraestructura implementa las interfaces definidas por la aplicación.
 
-### Prerequisites
+## Requisitos
 
 - Node.js 20+
 - pnpm
-- Docker & Docker Compose
+- Docker y Docker Compose
+- API Key de OpenAI (para embeddings)
+- API Key de Anthropic (para conversación)
 
-### Installation
+## Instalación
+
+1. Clona el repositorio e instala dependencias:
+
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/starbucks-ai-agent.git
-cd starbucks-ai-agent
-
-# Install dependencies
 pnpm install
+```
 
-# Copy environment variables
+2. Configura las variables de entorno:
+
+```bash
 cp .env.example .env
+```
 
-# Start services with Docker
+3. Edita `.env` y agrega tus API keys:
+
+| Variable | Descripción |
+|----------|-------------|
+| `MONGO_URI` | URI de conexión a MongoDB |
+| `CHROMA_HOST` | URL del servidor ChromaDB |
+| `ANTHROPIC_API_KEY` | API key de Anthropic para Claude |
+| `OPENAI_API_KEY` | API key de OpenAI para embeddings |
+
+4. Inicia los servicios con Docker:
+
+```bash
 docker-compose up -d
-
-# Run the application
-pnpm run start:dev
 ```
 
-### Environment Variables
-```env
-NODE_ENV=development
-PORT=3000
-MONGO_URI=mongodb://mongodb:27017/starbucks_agent
-CHROMA_HOST=http://chromadb:8000
-ANTHROPIC_API_KEY=your_api_key_here
-```
+5. Ejecuta el seed para poblar la base de datos con bebidas:
 
-## 🧪 Testing
-
-### Conventions
-
-We use **co-location** with `__tests__` folders:
-```
-src/domain/value-objects/
-├── __tests__/
-│   ├── money.vo.spec.ts
-│   └── order-id.vo.spec.ts
-├── money.vo.ts
-└── order-id.vo.ts
-```
-
-### Commands
 ```bash
-# Run all tests
-pnpm test
-
-# Run tests with coverage
-pnpm test --coverage
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Run specific folder tests
-pnpm test src/domain/
-
-# Run e2e tests
-pnpm run test:e2e
+docker-compose exec app pnpm run seed
 ```
 
-### Coverage Thresholds
+## Comandos Útiles
 
-We enforce **80% minimum coverage** for:
-- Statements
-- Branches
-- Functions
-- Lines
+| Comando | Descripción |
+|---------|-------------|
+| `pnpm run start:dev` | Inicia la aplicación en modo desarrollo |
+| `pnpm run seed` | Pobla la base de datos con el catálogo de bebidas |
+| `pnpm run seed:clear` | Limpia y vuelve a poblar la base de datos |
+| `pnpm run search:test` | Prueba la búsqueda semántica con ejemplos |
+| `pnpm test` | Ejecuta los tests unitarios |
+| `pnpm test:cov` | Ejecuta tests con reporte de cobertura |
 
-## 📝 Code Conventions
+## Servicios Docker
 
-### File Naming
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| app | 3000 | Aplicación NestJS |
+| mongodb | 27017 | Base de datos MongoDB |
+| chromadb | 8000 | Base de datos vectorial |
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| Entity | `*.entity.ts` | `order.entity.ts` |
-| Value Object | `*.vo.ts` | `money.vo.ts` |
-| Exception | `*.exception.ts` | `invalid-order.exception.ts` |
-| Service | `*.service.ts` | `order-validator.service.ts` |
-| Test | `*.spec.ts` | `money.vo.spec.ts` |
-| E2E Test | `*.e2e-spec.ts` | `app.e2e-spec.ts` |
+## Tech Stack
 
+- **Backend**: NestJS 10, TypeScript 5
+- **Base de Datos**: MongoDB 7, ChromaDB
+- **IA**: Claude (Anthropic) para conversación, OpenAI para embeddings
+- **Testing**: Jest con 80% de cobertura mínima
+- **Contenedores**: Docker, Docker Compose
 
-## 🐳 Docker
+## Estructura del Proyecto
 
-### Development
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop services
-docker-compose down
+```
+src/
+├── domain/           # Entidades, Value Objects y excepciones
+├── application/      # Casos de uso, puertos y DTOs
+├── infrastructure/   # Adaptadores (MongoDB, ChromaDB, AI)
+└── shared/           # Utilidades compartidas
 ```
 
-### Production
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
+## Licencia
 
-### Services
-
-| Service | Port | Description |
-|---------|------|-------------|
-| app | 3000 | NestJS application |
-| mongodb | 27017 | MongoDB database |
-| chromadb | 8000 | Vector database for RAG |
-
-
-## 🛠️ Tech Stack
-
-- **Runtime**: Node.js 20, TypeScript 5
-- **Framework**: NestJS 10
-- **Database**: MongoDB 7
-- **Vector DB**: ChromaDB
-- **AI**: Claude (Anthropic)
-- **Testing**: Jest
-- **Container**: Docker
-
-## 📄 License
-
-Nest is [MIT licensed](LICENSE).
+MIT
