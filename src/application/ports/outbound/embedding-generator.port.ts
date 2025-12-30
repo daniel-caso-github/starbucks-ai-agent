@@ -1,58 +1,6 @@
-/**
- * Represents a vector embedding - a numerical representation of text.
- * Each number in the array captures a dimension of meaning.
- *
- * Common dimensions are 384, 768, 1024, or 1536 depending on the model.
- * For example, OpenAI's text-embedding-ada-002 produces 1536 dimensions.
- */
-export type Embedding = number[];
+import { EmbeddingResultDto, EmbeddingType } from '@application/dtos/embedding-generator.dto';
 
-/**
- * Result of an embedding generation operation.
- */
-export interface EmbeddingResult {
-  /** The original text that was embedded */
-  text: string;
-
-  /** The generated embedding vector */
-  embedding: Embedding;
-
-  /** Number of tokens used (for tracking API usage) */
-  tokenCount: number;
-}
-
-/**
- * Outbound port for generating text embeddings.
- *
- * Embeddings are dense vector representations of text that capture
- * semantic meaning. Similar texts will have similar embeddings,
- * enabling semantic search.
- *
- * This is a core component of the RAG (Retrieval Augmented Generation)
- * pattern. When a user asks for "something sweet and cold", we:
- * 1. Generate an embedding for their query
- * 2. Compare it to pre-computed drink embeddings in ChromaDB
- * 3. Find the most similar drinks (nearest neighbors)
- *
- * The implementation might use:
- * - OpenAI's embedding API
- * - Anthropic's embedding capabilities
- * - Local models like sentence-transformers
- * - ChromaDB's built-in embedding functions
- *
- * @example
- * ```typescript
- * // Index a new drink
- * const drinkText = drink.toSummary();
- * const result = await embeddingGenerator.generate(drinkText);
- * await chromaDB.addEmbedding(drink.id, result.embedding);
- *
- * // Search for similar drinks
- * const queryEmbedding = await embeddingGenerator.generate("iced caramel coffee");
- * const similarDrinks = await chromaDB.findNearest(queryEmbedding.embedding, 5);
- * ```
- */
-export interface IEmbeddingGenerator {
+export interface IEmbeddingGeneratorPort {
   /**
    * Generates an embedding vector for a single text input.
    *
@@ -66,7 +14,7 @@ export interface IEmbeddingGenerator {
    * console.log(result.embedding.length); // e.g., 1536
    * ```
    */
-  generate(text: string): Promise<EmbeddingResult>;
+  generate(text: string): Promise<EmbeddingResultDto>;
 
   /**
    * Generates embeddings for multiple texts in a single batch.
@@ -89,7 +37,7 @@ export interface IEmbeddingGenerator {
    * }
    * ```
    */
-  generateBatch(texts: string[]): Promise<EmbeddingResult[]>;
+  generateBatch(texts: string[]): Promise<EmbeddingResultDto[]>;
 
   /**
    * Returns the dimensionality of embeddings produced by this generator.
@@ -134,5 +82,5 @@ export interface IEmbeddingGenerator {
    * generator.cosineSimilarity(latte.embedding, espresso.embedding); // ~0.60
    * ```
    */
-  cosineSimilarity(embedding1: Embedding, embedding2: Embedding): number;
+  cosineSimilarity(embedding1: EmbeddingType, embedding2: EmbeddingType): number;
 }

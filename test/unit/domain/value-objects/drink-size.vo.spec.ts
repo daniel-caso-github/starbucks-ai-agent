@@ -1,5 +1,5 @@
-import { DrinkSize } from '../drink-size.vo';
-import { InvalidValueException } from '../../exceptions';
+import { DrinkSize } from '@domain/value-objects';
+import { InvalidValueException } from '@domain/exceptions';
 
 describe('DrinkSize', () => {
   describe('factory methods', () => {

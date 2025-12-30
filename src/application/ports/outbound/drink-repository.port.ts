@@ -1,25 +1,7 @@
 import { Drink } from '@domain/entities';
 import { DrinkId } from '@domain/value-objects';
 
-/**
- * Outbound port for Drink persistence operations.
- *
- * This interface handles basic CRUD operations for drinks.
- * Note: For semantic search (finding drinks by description),
- * use IDrinkSearcher instead.
- *
- * @example
- * ```typescript
- * // Save a new drink to the menu
- * const drink = Drink.create({
- *   name: 'Caramel Latte',
- *   description: 'Espresso with steamed milk and caramel',
- *   basePrice: Money.fromDollars(5.50),
- * });
- * await this.drinkRepository.save(drink);
- * ```
- */
-export interface IDrinkRepository {
+export interface IDrinkRepositoryPort {
   /**
    * Persists a drink to storage.
    * If the drink already exists, it will be updated.

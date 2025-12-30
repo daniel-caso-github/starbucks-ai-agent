@@ -17,6 +17,17 @@
  * - Defines interfaces (ports) that infrastructure implements
  */
 
-export * from './use-cases';
-export * from './ports';
+// Common utilities
+export * from './common';
+
+// Error types
+export * from './errors';
+
+// DTOs
 export * from './dtos';
+
+// Ports (interfaces)
+export * from './ports';
+
+// Use cases
+export * from './use-cases';

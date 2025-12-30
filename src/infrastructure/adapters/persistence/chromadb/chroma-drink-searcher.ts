@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { ChromaClient, Collection, Metadata, Where } from 'chromadb';
 import { Drink } from '@domain/entities';
 import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
-import { DrinkSearchFilters, DrinkSearchResult, IDrinkSearcher } from '@application/ports/outbound';
+import { IDrinkSearcherPort } from '@application/ports/outbound';
+import { DrinkSearchFiltersDto, DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
 
 /**
  * ChromaDB implementation of IDrinkSearcher.
@@ -13,7 +14,7 @@ import { DrinkSearchFilters, DrinkSearchResult, IDrinkSearcher } from '@applicat
  * queries like "something sweet and cold" to find relevant drinks.
  */
 @Injectable()
-export class ChromaDrinkSearcher implements IDrinkSearcher, OnModuleInit {
+export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
   private readonly logger = new Logger(ChromaDrinkSearcher.name);
   private client!: ChromaClient;
   private collection!: Collection;
@@ -50,8 +51,8 @@ export class ChromaDrinkSearcher implements IDrinkSearcher, OnModuleInit {
   async findSimilar(
     query: string,
     limit = 5,
-    filters?: DrinkSearchFilters,
-  ): Promise<DrinkSearchResult[]> {
+    filters?: DrinkSearchFiltersDto,
+  ): Promise<DrinkSearchResultDto[]> {
     const whereClause = this.buildWhereClause(filters);
 
     const results = await this.collection.query({
@@ -159,7 +160,7 @@ export class ChromaDrinkSearcher implements IDrinkSearcher, OnModuleInit {
   /**
    * Builds a ChromaDB where clause from search filters.
    */
-  private buildWhereClause(filters?: DrinkSearchFilters): Where | undefined {
+  private buildWhereClause(filters?: DrinkSearchFiltersDto): Where | undefined {
     if (!filters) return undefined;
 
     const conditions: Where[] = [];
@@ -207,7 +208,7 @@ export class ChromaDrinkSearcher implements IDrinkSearcher, OnModuleInit {
     ids: string[][];
     distances?: (number | null)[][] | null;
     metadatas: (Metadata | null)[][];
-  }): DrinkSearchResult[] {
+  }): DrinkSearchResultDto[] {
     const ids = results.ids[0] || [];
     const distances = results.distances?.[0] || [];
     const metadatas = results.metadatas[0] || [];
@@ -226,7 +227,7 @@ export class ChromaDrinkSearcher implements IDrinkSearcher, OnModuleInit {
           score,
         };
       })
-      .filter((result): result is DrinkSearchResult => result !== null);
+      .filter((result): result is DrinkSearchResultDto => result !== null);
   }
 
   /**

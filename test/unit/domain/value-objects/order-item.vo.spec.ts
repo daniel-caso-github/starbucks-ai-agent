@@ -1,8 +1,5 @@
-import { OrderItem } from '../order-item.vo';
-import { DrinkId } from '../drink-id.vo';
-import { DrinkSize } from '../drink-size.vo';
-import { Money } from '../money.vo';
-import { InvalidValueException } from '../../exceptions';
+import { DrinkId, DrinkSize, Money, OrderItem } from '@domain/value-objects';
+import { InvalidValueException } from '@domain/exceptions';
 
 describe('OrderItem', () => {
   const createTestItem = (

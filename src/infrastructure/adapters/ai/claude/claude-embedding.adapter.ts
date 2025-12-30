@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Embedding, EmbeddingResult, IEmbeddingGenerator } from '@application/ports/outbound';
+import { IEmbeddingGeneratorPort } from '@application/ports/outbound';
+import { EmbeddingResultDto, EmbeddingType } from '@application/dtos/embedding-generator.dto';
 
 /**
  * Placeholder implementation of IEmbeddingGenerator.
@@ -15,7 +16,7 @@ import { Embedding, EmbeddingResult, IEmbeddingGenerator } from '@application/po
  * - ChromaDB's built-in embedding functions
  */
 @Injectable()
-export class ClaudeEmbeddingAdapter implements IEmbeddingGenerator, OnModuleInit {
+export class ClaudeEmbeddingAdapter implements IEmbeddingGeneratorPort, OnModuleInit {
   private readonly logger = new Logger(ClaudeEmbeddingAdapter.name);
   private readonly dimensions = 1536;
   private readonly maxTokens = 8191;
@@ -36,7 +37,7 @@ export class ClaudeEmbeddingAdapter implements IEmbeddingGenerator, OnModuleInit
   /**
    * Generates an embedding for a single text.
    */
-  generate(text: string): Promise<EmbeddingResult> {
+  generate(text: string): Promise<EmbeddingResultDto> {
     const embedding = this.generateSimpleEmbedding(text);
     const tokenCount = this.estimateTokenCount(text);
 
@@ -50,7 +51,7 @@ export class ClaudeEmbeddingAdapter implements IEmbeddingGenerator, OnModuleInit
   /**
    * Generates embeddings for multiple texts in batch.
    */
-  generateBatch(texts: string[]): Promise<EmbeddingResult[]> {
+  generateBatch(texts: string[]): Promise<EmbeddingResultDto[]> {
     const results = texts.map((text) => ({
       text,
       embedding: this.generateSimpleEmbedding(text),
@@ -77,7 +78,7 @@ export class ClaudeEmbeddingAdapter implements IEmbeddingGenerator, OnModuleInit
   /**
    * Calculates cosine similarity between two embeddings.
    */
-  cosineSimilarity(embedding1: Embedding, embedding2: Embedding): number {
+  cosineSimilarity(embedding1: EmbeddingType, embedding2: EmbeddingType): number {
     if (embedding1.length !== embedding2.length) {
       throw new Error('Embeddings must have the same dimensions');
     }
@@ -108,7 +109,7 @@ export class ClaudeEmbeddingAdapter implements IEmbeddingGenerator, OnModuleInit
    * WARNING: This is a placeholder implementation for demonstration.
    * It does NOT capture semantic meaning.
    */
-  private generateSimpleEmbedding(text: string): Embedding {
+  private generateSimpleEmbedding(text: string): EmbeddingType {
     const embedding: number[] = new Array<number>(this.dimensions).fill(0);
     const normalizedText = text.toLowerCase();
 

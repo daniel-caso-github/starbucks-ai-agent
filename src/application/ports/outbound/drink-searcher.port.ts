@@ -1,70 +1,8 @@
 import { Drink } from '@domain/entities';
-import { DrinkId, Money } from '@domain/value-objects';
+import { DrinkId } from '@domain/value-objects';
+import { DrinkSearchFiltersDto, DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
 
-/**
- * Represents a drink search result with relevance scoring.
- * The score indicates how well the drink matches the search query.
- */
-export interface DrinkSearchResult {
-  /** The matched drink entity */
-  drink: Drink;
-
-  /**
-   * Relevance score between 0 and 1.
-   * Higher scores indicate better matches.
-   * - 1.0: Perfect match
-   * - 0.7+: Strong match
-   * - 0.5+: Moderate match
-   * - <0.5: Weak match
-   */
-  score: number;
-}
-
-/**
- * Filter criteria for drink searches.
- * All fields are optional - only specified fields will be applied.
- */
-export interface DrinkSearchFilters {
-  /** Maximum price filter */
-  maxPrice?: Money;
-
-  /** Minimum price filter */
-  minPrice?: Money;
-
-  /** Only include drinks that support milk customization */
-  supportsMilk?: boolean;
-
-  /** Only include drinks that support size customization */
-  supportsSize?: boolean;
-
-  /** Only include drinks that support syrup customization */
-  supportsSyrup?: boolean;
-}
-
-/**
- * Outbound port for searching drinks in the menu.
- *
- * This interface abstracts the drink search mechanism. The primary
- * implementation will use ChromaDB for semantic (vector) search,
- * enabling natural language queries like "something sweet and cold".
- *
- * The semantic search is a key component of the RAG (Retrieval Augmented
- * Generation) pattern used by the AI barista to find relevant drinks
- * based on customer requests.
- *
- * @example
- * ```typescript
- * // Customer says: "I want something with caramel, not too strong"
- * const results = await this.drinkSearcher.findSimilar(
- *   "caramel flavored mild coffee drink",
- *   5
- * );
- *
- * // Pass top results to AI for response generation
- * const topDrinks = results.map(r => r.drink);
- * ```
- */
-export interface IDrinkSearcher {
+export interface IDrinkSearcherPort {
   /**
    * Performs semantic search to find drinks similar to the query.
    * Uses vector embeddings to find conceptually similar drinks,
@@ -85,8 +23,8 @@ export interface IDrinkSearcher {
   findSimilar(
     query: string,
     limit?: number,
-    filters?: DrinkSearchFilters,
-  ): Promise<DrinkSearchResult[]>;
+    filters?: DrinkSearchFiltersDto,
+  ): Promise<DrinkSearchResultDto[]>;
 
   /**
    * Finds a drink by its exact name (case-insensitive).
