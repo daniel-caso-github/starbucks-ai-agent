@@ -1,2 +1,2 @@
-// ChromaDB adapter will be exported here
-export {};
+export { ChromaDBModule } from './chromadb.module';
+export { ChromaDrinkSearcher } from './chroma-drink-searcher';

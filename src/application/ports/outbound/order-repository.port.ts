@@ -30,6 +30,18 @@ export interface IOrderRepository {
   save(order: Order): Promise<void>;
 
   /**
+   * Persists an order with an associated conversation ID.
+   * This is the preferred method when creating new orders as it establishes
+   * the relationship between the order and its conversation context.
+   *
+   * @param order - The order entity to save
+   * @param conversationId - The conversation this order belongs to
+   * @returns Promise that resolves when the order is saved
+   * @throws RepositoryException if the save operation fails
+   */
+  saveWithConversation(order: Order, conversationId: string): Promise<void>;
+
+  /**
    * Retrieves an order by its unique identifier.
    *
    * @param id - The order's unique identifier
