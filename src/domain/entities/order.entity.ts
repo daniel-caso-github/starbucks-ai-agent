@@ -119,6 +119,77 @@ export class Order {
     this.touch();
   }
 
+  /**
+   * Remove an item by its 0-based index in the items array.
+   * @param index 0-based index of the item to remove
+   */
+  removeItemByIndex(index: number): void {
+    this.ensureCanBeModified();
+
+    if (index < 0 || index >= this._items.length) {
+      throw new InvalidOrderException(
+        `Invalid item index: ${index + 1}. Order has ${this._items.length} items.`,
+      );
+    }
+
+    this._items.splice(index, 1);
+    this.touch();
+  }
+
+  /**
+   * Update an item by its 0-based index using an updater function.
+   * @param index 0-based index of the item to update
+   * @param updater Function that receives the current item and returns the updated item
+   */
+  updateItemByIndex(index: number, updater: (item: OrderItem) => OrderItem): void {
+    this.ensureCanBeModified();
+
+    if (index < 0 || index >= this._items.length) {
+      throw new InvalidOrderException(
+        `Invalid item index: ${index + 1}. Order has ${this._items.length} items.`,
+      );
+    }
+
+    const currentItem = this._items[index];
+    const updatedItem = updater(currentItem);
+
+    // Validate quantity limit if quantity changed
+    if (updatedItem.quantity !== currentItem.quantity) {
+      const quantityDiff = updatedItem.quantity - currentItem.quantity;
+      const newTotalQuantity = this.totalQuantity + quantityDiff;
+      if (newTotalQuantity > Order.MAX_TOTAL_ITEMS) {
+        throw new InvalidOrderException(
+          `Cannot update quantity. Maximum total items is ${Order.MAX_TOTAL_ITEMS}`,
+        );
+      }
+    }
+
+    this._items[index] = updatedItem;
+    this.touch();
+  }
+
+  /**
+   * Find the 0-based index of an item by drink name (case-insensitive).
+   * Returns -1 if not found.
+   * @param drinkName Name of the drink to find
+   */
+  findItemIndexByName(drinkName: string): number {
+    const normalizedName = drinkName.toLowerCase();
+    return this._items.findIndex((item) => item.drinkName.toLowerCase() === normalizedName);
+  }
+
+  /**
+   * Find all indices of items matching a drink name (case-insensitive).
+   * Useful when the same drink appears multiple times with different customizations.
+   * @param drinkName Name of the drink to find
+   */
+  findAllItemIndicesByName(drinkName: string): number[] {
+    const normalizedName = drinkName.toLowerCase();
+    return this._items
+      .map((item, idx) => (item.drinkName.toLowerCase() === normalizedName ? idx : -1))
+      .filter((idx) => idx !== -1);
+  }
+
   // Business logic: confirm the order
   confirm(): void {
     if (!this._status.isPending()) {

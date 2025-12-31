@@ -310,7 +310,7 @@ describe('GetConversationHistoryUseCase', () => {
       expect(result.isRight()).toBe(true);
       if (result.isRight()) {
         expect(result.value.conversationId).toBeDefined();
-        expect(result.value.welcomeMessage).toContain('Welcome');
+        expect(result.value.welcomeMessage).toContain('Bienvenido');
         expect(result.value.suggestedPrompts).toBeInstanceOf(Array);
         expect(result.value.suggestedPrompts.length).toBeGreaterThan(0);
       }

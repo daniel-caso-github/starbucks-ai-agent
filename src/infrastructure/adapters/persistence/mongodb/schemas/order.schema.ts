@@ -55,9 +55,10 @@ export const OrderItemSchema = SchemaFactory.createForClass(OrderItemDocument);
 @Schema({
   collection: 'orders',
   timestamps: true,
+  _id: false, // Disable auto ObjectId, we use custom string _id
 })
 export class OrderDocument {
-  @Prop({ required: true, unique: true })
+  @Prop({ type: String, required: true })
   _id!: string;
 
   @Prop({ required: true })
@@ -69,10 +70,10 @@ export class OrderDocument {
   @Prop({ required: true })
   conversationId!: string;
 
-  @Prop({ required: true })
+  // Managed by timestamps: true
   createdAt!: Date;
 
-  @Prop({ required: true })
+  // Managed by timestamps: true
   updatedAt!: Date;
 }
 

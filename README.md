@@ -4,6 +4,10 @@ Agente conversacional de IA que simula un barista de Starbucks. Permite a los us
 
 ## Características Principales
 
+- **Chat Interactivo**: Conversa con el barista AI en español a través de la terminal. Ordena bebidas, modifica tu orden y procede al pago de forma natural.
+
+- **Órdenes Múltiples**: Ordena varias bebidas en un solo mensaje (ej: "quiero un latte y dos cappuccinos").
+
 - **Búsqueda Semántica**: Encuentra bebidas usando lenguaje natural (ej: "algo frío y refrescante", "bebida de otoño"). Utiliza embeddings de OpenAI y ChromaDB para entender el significado detrás de las consultas.
 
 - **Conversación con IA**: Interactúa con Claude AI para procesar mensajes, recomendar bebidas y guiar el proceso de pedido.
@@ -11,6 +15,61 @@ Agente conversacional de IA que simula un barista de Starbucks. Permite a los us
 - **Gestión de Pedidos**: Crea y gestiona pedidos con opciones de personalización como tamaño, tipo de leche, jarabes y toppings.
 
 - **Persistencia de Datos**: Almacena órdenes, conversaciones y catálogo de bebidas en MongoDB. Los vectores de búsqueda se almacenan en ChromaDB.
+
+## Chat con el Barista
+
+Inicia una conversación interactiva con el barista AI:
+
+```bash
+pnpm run chat
+```
+
+### Flujo de una Orden
+
+```
+👤 You: Hola, quiero un latte grande y un cappuccino
+🧑‍🍳 Barista: ¡Perfecto! Te agrego un Caffè Latte grande y un Cappuccino...
+   [Orden: 2 item(s) - $9.50 - Estado: pending]
+
+👤 You: confirmar mi orden
+🧑‍🍳 Barista: Tu orden está confirmada...
+   [Orden: 2 item(s) - $9.50 - Estado: confirmed]
+
+👤 You: proceder al pago
+🧑‍🍳 Barista: ¡Gracias por tu compra! Tu orden está lista...
+```
+
+### Comandos del Chat
+
+| Comando | Descripción |
+|---------|-------------|
+| `salir` | Terminar la conversación |
+| `limpiar` | Iniciar nueva conversación |
+| `orden` | Mostrar detalles de la orden actual |
+| `debug` | Mostrar información de depuración |
+
+### Ejemplos de Interacción
+
+```
+# Ordenar bebidas
+"Quiero un americano grande"
+"Dame dos lattes con leche de avena"
+"Un chocolate caliente y un cappuccino por favor"
+
+# Modificar orden
+"Cambia el latte a tamaño venti"
+"Quita el cappuccino"
+"Agrega un shot extra al americano"
+
+# Preguntar sobre el menú
+"¿Qué bebidas frías tienen?"
+"¿Cuál es su bebida más popular?"
+"Recomiéndame algo con caramelo"
+
+# Confirmar y pagar
+"Confirmar mi orden"
+"Proceder al pago"
+```
 
 ## Arquitectura
 
@@ -46,7 +105,7 @@ El proyecto implementa **Arquitectura Hexagonal** (Ports & Adapters) con princip
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐      │
 │  │  Entities   │  │Value Objects│  │  Domain Services    │      │
 │  │ Order,Drink │  │ Money,Size  │  │  OrderValidator     │      │
-│  │ Conversation│  │ DrinkId     │  │                     │      │ 
+│  │ Conversation│  │ DrinkId     │  │                     │      │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -101,17 +160,26 @@ docker-compose up -d
 5. Ejecuta el seed para poblar la base de datos con bebidas:
 
 ```bash
-docker-compose exec app pnpm run seed
+pnpm run seed
+```
+
+6. Inicia el chat con el barista:
+
+```bash
+pnpm run chat
 ```
 
 ## Comandos Útiles
 
 | Comando | Descripción |
 |---------|-------------|
+| `pnpm run chat` | Inicia el chat interactivo con el barista AI |
 | `pnpm run start:dev` | Inicia la aplicación en modo desarrollo |
 | `pnpm run seed` | Pobla la base de datos con el catálogo de bebidas |
 | `pnpm run seed:clear` | Limpia y vuelve a poblar la base de datos |
 | `pnpm run search:test` | Prueba la búsqueda semántica con ejemplos |
+| `pnpm run chroma` | Lista las colecciones de ChromaDB |
+| `pnpm run chroma:drinks` | Muestra los items de la colección drinks |
 | `pnpm test` | Ejecuta los tests unitarios |
 | `pnpm test:cov` | Ejecuta tests con reporte de cobertura |
 
@@ -121,7 +189,8 @@ docker-compose exec app pnpm run seed
 |----------|--------|-------------|
 | app | 3000 | Aplicación NestJS |
 | mongodb | 27017 | Base de datos MongoDB |
-| chromadb | 8000 | Base de datos vectorial |
+| chromadb | 8000 | Base de datos vectorial (API REST) |
+| mongo-express | 8081 | UI web para MongoDB (admin/admin) |
 
 ## Tech Stack
 
@@ -139,6 +208,21 @@ src/
 ├── application/      # Casos de uso, puertos y DTOs
 ├── infrastructure/   # Adaptadores (MongoDB, ChromaDB, AI)
 └── shared/           # Utilidades compartidas
+```
+
+## Flujo de Estados de una Orden
+
+```
+┌─────────┐     confirmar      ┌───────────┐      pagar       ┌───────────┐
+│ PENDING │ ─────────────────► │ CONFIRMED │ ───────────────► │ COMPLETED │
+└─────────┘                    └───────────┘                  └───────────┘
+     │                              │
+     │         cancelar             │        cancelar
+     └──────────────┬───────────────┘
+                    ▼
+              ┌───────────┐
+              │ CANCELLED │
+              └───────────┘
 ```
 
 ## Licencia

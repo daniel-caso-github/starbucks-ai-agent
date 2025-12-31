@@ -21,7 +21,10 @@
     "seed": "ts-node -r tsconfig-paths/register src/cli.ts seed",
     "seed:clear": "ts-node -r tsconfig-paths/register src/cli.ts seed --clear",
     "seed:stats": "ts-node -r tsconfig-paths/register src/cli.ts seed --stats",
-    "search:test": "ts-node -r tsconfig-paths/register src/cli.ts search-test"
+    "search:test": "ts-node -r tsconfig-paths/register src/cli.ts search-test",
+    "chroma": "ts-node -r tsconfig-paths/register src/cli.ts chroma",
+    "chroma:drinks": "ts-node -r tsconfig-paths/register src/cli.ts chroma --collection drinks",
+    "chat": "ts-node -r tsconfig-paths/register src/cli.ts chat"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

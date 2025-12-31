@@ -25,9 +25,10 @@ export const MessageSchema = SchemaFactory.createForClass(MessageDocument);
 @Schema({
   collection: 'conversations',
   timestamps: true,
+  _id: false, // Disable auto ObjectId, we use custom string _id
 })
 export class ConversationDocument {
-  @Prop({ required: true, unique: true })
+  @Prop({ type: String, required: true })
   _id!: string;
 
   @Prop({ type: [MessageDocument], default: [] })
@@ -36,10 +37,10 @@ export class ConversationDocument {
   @Prop({ type: String, default: null })
   currentOrderId!: string | null;
 
-  @Prop({ required: true })
+  // Managed by timestamps: true
   createdAt!: Date;
 
-  @Prop({ required: true })
+  // Managed by timestamps: true
   updatedAt!: Date;
 }
 

@@ -1,29 +1,70 @@
 import { Module } from '@nestjs/common';
-import { IDrinkRepositoryPort, IDrinkSearcherPort } from '@application/ports/outbound';
-import { ChromaDBModule, MongoDBModule } from '@infrastructure/adapters';
+import { MongoDBModule, ChromaDBModule, ClaudeModule } from '@infrastructure/adapters';
+import {
+  IConversationRepositoryPort,
+  IOrderRepositoryPort,
+  IDrinkRepositoryPort,
+  IConversationAIPort,
+  IDrinkSearcherPort,
+} from '@application/ports/outbound';
+import { ProcessMessageUseCase } from '@application/use-cases';
 import { DrinkSeederService } from './drink-seeder.service';
 import { SeedCommand } from './seed.command';
-import { SearchTestCommand } from '@infrastructure/database/seeds/search-test.command';
+import { SearchTestCommand } from './search-test.command';
+import { ChatTestCommand } from './chat-test.command';
 
 /**
- * Module for database seeding functionality.
+ * Module for database seeding and testing functionality.
  *
- * This module provides CLI commands to seed the database
- * with initial drink data for development and testing.
+ * This module provides CLI commands for:
+ * - Seeding the database with drinks
+ * - Testing semantic search
+ * - Interactive chat with the barista AI (full end-to-end)
  */
 @Module({
-  imports: [MongoDBModule, ChromaDBModule],
+  imports: [MongoDBModule, ChromaDBModule, ClaudeModule],
   providers: [
+    // Seeder service
     {
       provide: DrinkSeederService,
       useFactory: (
         drinkRepository: IDrinkRepositoryPort,
         drinkSearcher: IDrinkSearcherPort,
-      ): DrinkSeederService => new DrinkSeederService(drinkRepository, drinkSearcher),
+      ): DrinkSeederService => {
+        return new DrinkSeederService(drinkRepository, drinkSearcher);
+      },
       inject: ['IDrinkRepository', 'IDrinkSearcher'],
     },
+    // ProcessMessageUseCase for full end-to-end chat
+    {
+      provide: 'ProcessMessageUseCase',
+      useFactory: (
+        conversationRepository: IConversationRepositoryPort,
+        orderRepository: IOrderRepositoryPort,
+        drinkRepository: IDrinkRepositoryPort,
+        conversationAI: IConversationAIPort,
+        drinkSearcher: IDrinkSearcherPort,
+      ): ProcessMessageUseCase => {
+        return new ProcessMessageUseCase(
+          conversationRepository,
+          orderRepository,
+          drinkRepository,
+          conversationAI,
+          drinkSearcher,
+        );
+      },
+      inject: [
+        'IConversationRepository',
+        'IOrderRepository',
+        'IDrinkRepository',
+        'IConversationAI',
+        'IDrinkSearcher',
+      ],
+    },
+    // CLI Commands
     SeedCommand,
     SearchTestCommand,
+    ChatTestCommand,
   ],
   exports: [DrinkSeederService],
 })

@@ -105,6 +105,8 @@ describe('ProcessMessageUseCase', () => {
     message: overrides.message ?? 'Here is your drink recommendation!',
     intent: overrides.intent ?? 'greeting',
     extractedOrder: overrides.extractedOrder ?? null,
+    extractedOrders: null,
+    extractedModifications: [],
     suggestedActions: [],
   });
 
@@ -507,20 +509,20 @@ describe('ProcessMessageUseCase', () => {
         mockOrderRepository.findActiveByConversationId.mockResolvedValue(null);
         mockConversationAI.generateResponse.mockResolvedValue(
           createAIResponse({
-            message: 'Welcome to Starbucks! How can I help you today?',
+            message: '¡Bienvenido a Starbucks! ¿En qué te puedo ayudar hoy?',
             intent: 'greeting',
           }),
         );
         mockConversationRepository.save.mockResolvedValue(undefined);
 
         // Act
-        const result = await useCase.execute({ message: 'Hi there!' });
+        const result = await useCase.execute({ message: 'Hola!' });
 
         // Assert
         expect(result.isRight()).toBe(true);
         if (result.isRight()) {
           expect(result.value.intent).toBe('greeting');
-          expect(result.value.response).toContain('Welcome');
+          expect(result.value.response).toContain('Bienvenido');
         }
       });
 
@@ -564,8 +566,8 @@ describe('ProcessMessageUseCase', () => {
         // Assert
         expect(result.isRight()).toBe(true);
         if (result.isRight()) {
-          expect(result.value.suggestedReplies).toContain('Browse our menu');
-          expect(result.value.suggestedReplies).toContain('Start an order');
+          expect(result.value.suggestedReplies).toContain('Ver el menú');
+          expect(result.value.suggestedReplies).toContain('Hacer un pedido');
         }
       });
 
@@ -586,8 +588,8 @@ describe('ProcessMessageUseCase', () => {
         // Assert
         expect(result.isRight()).toBe(true);
         if (result.isRight()) {
-          expect(result.value.suggestedReplies).toContain('Confirm your order');
-          expect(result.value.suggestedReplies).toContain('Cancel your order');
+          expect(result.value.suggestedReplies).toContain('Confirmar mi orden');
+          expect(result.value.suggestedReplies).toContain('Cancelar orden');
         }
       });
     });
@@ -601,7 +603,7 @@ describe('ProcessMessageUseCase', () => {
         mockOrderRepository.findActiveByConversationId.mockResolvedValue(null);
         mockConversationAI.generateResponse.mockResolvedValue(
           createAIResponse({
-            message: 'Welcome! What can I get for you?',
+            message: '¡Bienvenido! ¿Qué te puedo servir?',
             intent: 'greeting',
           }),
         );
@@ -609,7 +611,7 @@ describe('ProcessMessageUseCase', () => {
 
         // Act
         await useCase.execute({
-          message: 'Hi!',
+          message: 'Hola!',
           conversationId: 'conv-123',
         });
 
@@ -617,10 +619,10 @@ describe('ProcessMessageUseCase', () => {
         expect(mockConversationRepository.save).toHaveBeenCalledWith(
           expect.objectContaining({
             messages: expect.arrayContaining([
-              expect.objectContaining({ role: 'user', content: 'Hi!' }),
+              expect.objectContaining({ role: 'user', content: 'Hola!' }),
               expect.objectContaining({
                 role: 'assistant',
-                content: 'Welcome! What can I get for you?',
+                content: '¡Bienvenido! ¿Qué te puedo servir?',
               }),
             ]),
           }),
@@ -667,33 +669,35 @@ describe('ProcessMessageUseCase', () => {
     });
 
     describe('modify_order intent', () => {
-      it('should add item to order when intent is modify_order', async () => {
+      it('should modify order when intent is modify_order with modifications', async () => {
         // Arrange
         const existingOrder = createTestOrder({ id: 'order-123', withItem: true });
-        const newDrink = createTestDrink({ id: 'drink-2', name: 'Mocha' });
         const conversation = createTestConversation('conv-123');
 
-        const extractedOrder = createExtractedOrder({
-          drinkName: 'Mocha',
-          confidence: 0.9,
-        });
-
         mockConversationRepository.findById.mockResolvedValue(conversation);
-        mockDrinkSearcher.findSimilar.mockResolvedValue([createSearchResult(newDrink, 0.95)]);
+        mockDrinkSearcher.findSimilar.mockResolvedValue([]);
         mockOrderRepository.findActiveByConversationId.mockResolvedValue(existingOrder);
-        mockConversationAI.generateResponse.mockResolvedValue(
-          createAIResponse({
-            message: "I've added a Mocha to your order!",
-            intent: 'modify_order',
-            extractedOrder,
-          }),
-        );
-        mockOrderRepository.save.mockResolvedValue(undefined);
+        mockConversationAI.generateResponse.mockResolvedValue({
+          message: '¡He actualizado tu orden!',
+          intent: 'modify_order',
+          extractedOrder: null,
+          extractedOrders: null,
+          extractedModifications: [
+            {
+              action: 'modify',
+              drinkName: 'Caramel Latte',
+              changes: { newQuantity: 2 },
+              confidence: 0.95,
+            },
+          ],
+          suggestedActions: [],
+        });
+        mockOrderRepository.saveWithConversation.mockResolvedValue(undefined);
         mockConversationRepository.save.mockResolvedValue(undefined);
 
         // Act
         const result = await useCase.execute({
-          message: 'Actually, add a mocha too',
+          message: 'Make that 2 lattes please',
           conversationId: 'conv-123',
         });
 
@@ -702,7 +706,36 @@ describe('ProcessMessageUseCase', () => {
         if (result.isRight()) {
           expect(result.value.intent).toBe('modify_order');
         }
-        expect(mockOrderRepository.save).toHaveBeenCalled();
+        expect(mockOrderRepository.saveWithConversation).toHaveBeenCalled();
+      });
+
+      it('should not save when no modifications provided', async () => {
+        // Arrange
+        const existingOrder = createTestOrder({ id: 'order-123', withItem: true });
+        const conversation = createTestConversation('conv-123');
+
+        mockConversationRepository.findById.mockResolvedValue(conversation);
+        mockDrinkSearcher.findSimilar.mockResolvedValue([]);
+        mockOrderRepository.findActiveByConversationId.mockResolvedValue(existingOrder);
+        mockConversationAI.generateResponse.mockResolvedValue({
+          message: "What would you like to modify?",
+          intent: 'modify_order',
+          extractedOrder: null,
+          extractedOrders: null,
+          extractedModifications: [],
+          suggestedActions: [],
+        });
+        mockConversationRepository.save.mockResolvedValue(undefined);
+
+        // Act
+        const result = await useCase.execute({
+          message: 'Change my order',
+          conversationId: 'conv-123',
+        });
+
+        // Assert
+        expect(result.isRight()).toBe(true);
+        expect(mockOrderRepository.saveWithConversation).not.toHaveBeenCalled();
       });
     });
   });

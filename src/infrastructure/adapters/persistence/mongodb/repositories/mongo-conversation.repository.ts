@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Conversation } from '@domain/entities';
@@ -13,6 +13,8 @@ import { ConversationMapper } from '../mappers';
  */
 @Injectable()
 export class MongoConversationRepository implements IConversationRepositoryPort {
+  private readonly logger = new Logger(MongoConversationRepository.name);
+
   constructor(
     @InjectModel(ConversationDocument.name)
     private readonly conversationModel: Model<ConversationDocumentType>,
@@ -23,27 +25,54 @@ export class MongoConversationRepository implements IConversationRepositoryPort 
    * Uses upsert to handle both create and update operations.
    */
   async save(conversation: Conversation): Promise<void> {
-    const document = ConversationMapper.toDocument(conversation);
+    try {
+      const document = ConversationMapper.toDocument(conversation);
 
-    await this.conversationModel.findByIdAndUpdate(
-      document._id,
-      {
-        $set: {
-          messages: document.messages,
+      // Convert messages to plain objects for MongoDB
+      const messagesData = document.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      }));
+
+      this.logger.debug(`Saving conversation: ${document._id}`);
+
+      // Check if document exists first
+      const exists = await this.conversationModel.exists({ _id: document._id });
+
+      if (exists) {
+        // Update existing document
+        await this.conversationModel.updateOne(
+          { _id: document._id },
+          {
+            $set: {
+              messages: messagesData,
+              currentOrderId: document.currentOrderId,
+            },
+          },
+        );
+        this.logger.debug(`Updated conversation: ${document._id}`);
+      } else {
+        // Create new document
+        const created = await this.conversationModel.create({
+          _id: document._id,
+          messages: messagesData,
           currentOrderId: document.currentOrderId,
-          createdAt: document.createdAt,
-          updatedAt: document.updatedAt,
-        },
-      },
-      { upsert: true, new: true },
-    );
+        });
+        this.logger.debug(`Created conversation: ${created._id}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to save conversation: ${message}`);
+      throw error;
+    }
   }
 
   /**
    * Finds a conversation by its unique identifier.
    */
   async findById(id: ConversationId): Promise<Conversation | null> {
-    const document = await this.conversationModel.findById(id.toString());
+    const document = await this.conversationModel.findOne({ _id: id.toString() });
 
     if (!document) {
       return null;

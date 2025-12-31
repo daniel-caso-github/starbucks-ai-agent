@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Either, left, right } from '../common/either';
 import {
   ApplicationError,
@@ -26,7 +26,10 @@ import {
 } from '@application/dtos';
 import {
   ConversationIntentType,
+  ExtractedModificationDto,
   ExtractedOrderInfoDto,
+  ExtractedOrderItemDto,
+  ExtractedOrdersDto,
 } from '@application/dtos/conversation-ai.dto';
 
 /**
@@ -43,6 +46,8 @@ import {
  */
 @Injectable()
 export class ProcessMessageUseCase implements IProcessMessagePort {
+  private readonly logger = new Logger(ProcessMessageUseCase.name);
+
   constructor(
     @Inject('IConversationRepository')
     private readonly conversationRepository: IConversationRepositoryPort,
@@ -98,6 +103,8 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
       const orderAfterIntent = await this.processIntent(
         aiResponse.intent,
         aiResponse.extractedOrder,
+        aiResponse.extractedOrders,
+        aiResponse.extractedModifications,
         conversation,
         activeOrder,
         relevantDrinks,
@@ -145,28 +152,40 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
 
   /**
    * Get an existing conversation or create a new one.
+   * New conversations are saved immediately to ensure persistence.
    */
   private async getOrCreateConversation(
     conversationId?: string,
   ): Promise<Either<ApplicationError, Conversation>> {
-    // If no ID provided, create new conversation
+    this.logger.debug(`getOrCreateConversation called with ID: ${conversationId ?? 'new'}`);
+
+    // If no ID provided, create and save new conversation
     if (!conversationId) {
       const newConversation = Conversation.create();
+      this.logger.debug(`Creating new conversation: ${newConversation.id.toString()}`);
+      // Save immediately to ensure it exists for subsequent messages
+      await this.conversationRepository.save(newConversation);
+      this.logger.debug(`Saved new conversation: ${newConversation.id.toString()}`);
       return right(newConversation);
     }
 
     // Try to find existing conversation
     try {
       const id = ConversationId.fromString(conversationId);
+      this.logger.debug(`Looking for existing conversation: ${id.toString()}`);
       const existingConversation = await this.conversationRepository.findById(id);
 
       if (!existingConversation) {
+        this.logger.warn(`Conversation not found: ${conversationId}`);
         return left(new ConversationNotFoundError(conversationId));
       }
 
+      this.logger.debug(`Found conversation: ${existingConversation.id.toString()}`);
       return right(existingConversation);
-    } catch {
+    } catch (error: unknown) {
       // Invalid ID format - treat as not found
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error finding conversation: ${message}`);
       return left(new ConversationNotFoundError(conversationId));
     }
   }
@@ -202,19 +221,30 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
   private async processIntent(
     intent: ConversationIntentType,
     extractedOrder: ExtractedOrderInfoDto | null,
+    extractedOrders: ExtractedOrdersDto | null,
+    extractedModifications: ExtractedModificationDto[],
     conversation: Conversation,
     currentOrder: Order | null,
     relevantDrinks: Drink[],
   ): Promise<Order | null> {
     switch (intent) {
       case 'order_drink':
-        return this.handleOrderIntent(extractedOrder, conversation, currentOrder, relevantDrinks);
+        return this.handleOrderIntent(
+          extractedOrder,
+          extractedOrders,
+          conversation,
+          currentOrder,
+          relevantDrinks,
+        );
 
       case 'modify_order':
-        return this.handleModifyIntent(extractedOrder, currentOrder, relevantDrinks);
+        return this.handleModifyIntent(extractedModifications, currentOrder, conversation);
 
       case 'confirm_order':
         return this.handleConfirmIntent(currentOrder, conversation);
+
+      case 'process_payment':
+        return this.handlePaymentIntent(currentOrder, conversation);
 
       case 'cancel_order':
         return this.handleCancelIntent(currentOrder, conversation);
@@ -227,42 +257,72 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
 
   /**
    * Handle order_drink intent - create or add to order.
+   * Supports multiple items in a single message.
    */
   private async handleOrderIntent(
     extractedOrder: ExtractedOrderInfoDto | null,
+    extractedOrders: ExtractedOrdersDto | null,
     conversation: Conversation,
     currentOrder: Order | null,
     relevantDrinks: Drink[],
   ): Promise<Order | null> {
-    if (!extractedOrder || !extractedOrder.drinkName || extractedOrder.confidence < 0.5) {
-      // Not confident enough to create order
+    // Use extractedOrders if available (supports multiple items), else fall back to single extractedOrder
+    const itemsToProcess: ExtractedOrderItemDto[] = extractedOrders?.items ?? [];
+
+    // Add single extractedOrder if no extractedOrders but extractedOrder exists
+    if (itemsToProcess.length === 0 && extractedOrder && extractedOrder.drinkName) {
+      itemsToProcess.push({
+        drinkName: extractedOrder.drinkName,
+        size: extractedOrder.size,
+        quantity: extractedOrder.quantity,
+        customizations: extractedOrder.customizations,
+        confidence: extractedOrder.confidence,
+      });
+    }
+
+    // Filter out low-confidence extractions
+    const validItems = itemsToProcess.filter((item) => item.confidence >= 0.5);
+
+    if (validItems.length === 0) {
       return currentOrder;
     }
 
-    // Find the drink being ordered
-    const drink = await this.findDrink(extractedOrder.drinkName, relevantDrinks);
-    if (!drink) {
-      return currentOrder;
-    }
-
-    // Create order item
-    const orderItem = OrderItem.create({
-      drinkId: drink.id,
-      drinkName: drink.name,
-      quantity: extractedOrder.quantity || 1,
-      unitPrice: drink.basePrice,
-      size: extractedOrder.size ?? undefined,
-      customizations: extractedOrder.customizations,
-    });
-
-    // Add to existing order or create new one
+    // Use existing order or create new one
     let order: Order;
     if (currentOrder && currentOrder.status.canBeModified()) {
-      currentOrder.addItem(orderItem);
       order = currentOrder;
     } else {
       order = Order.create();
+    }
+
+    // Add all valid items to the order
+    this.logger.debug(`Processing ${validItems.length} valid items to add`);
+    let itemsAdded = 0;
+    for (const extractedItem of validItems) {
+      this.logger.debug(`Looking for drink: ${extractedItem.drinkName}`);
+      const drink = await this.findDrink(extractedItem.drinkName, relevantDrinks);
+      if (!drink) {
+        this.logger.warn(`Drink not found: ${extractedItem.drinkName}`);
+        continue;
+      }
+
+      this.logger.debug(`Found drink: ${drink.name}, adding to order`);
+      const orderItem = OrderItem.create({
+        drinkId: drink.id,
+        drinkName: drink.name,
+        quantity: extractedItem.quantity || 1,
+        unitPrice: drink.basePrice,
+        size: extractedItem.size ?? undefined,
+        customizations: extractedItem.customizations,
+      });
+
       order.addItem(orderItem);
+      itemsAdded++;
+      this.logger.debug(`Added item, order now has ${order.items.length} items`);
+    }
+
+    if (itemsAdded === 0) {
+      return currentOrder;
     }
 
     // Save the order with conversation reference
@@ -272,43 +332,130 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
   }
 
   /**
-   * Handle modify_order intent.
+   * Handle modify_order intent - supports modify and remove operations.
    */
   private async handleModifyIntent(
-    extractedOrder: ExtractedOrderInfoDto | null,
+    modifications: ExtractedModificationDto[],
     currentOrder: Order | null,
-    relevantDrinks: Drink[],
+    conversation: Conversation,
   ): Promise<Order | null> {
-    if (!currentOrder || !extractedOrder || !extractedOrder.drinkName) {
+    if (!currentOrder || modifications.length === 0) {
       return currentOrder;
     }
 
-    // For now, modification adds a new item
-    // In a more complete implementation, we would handle item updates and removals
-    const drink = await this.findDrink(extractedOrder.drinkName, relevantDrinks);
-    if (!drink) {
+    if (!currentOrder.status.canBeModified()) {
+      this.logger.warn('Cannot modify order - order is not in a modifiable state');
       return currentOrder;
     }
 
-    const orderItem = OrderItem.create({
-      drinkId: drink.id,
-      drinkName: drink.name,
-      quantity: extractedOrder.quantity || 1,
-      unitPrice: drink.basePrice,
-      size: extractedOrder.size ?? undefined,
-      customizations: extractedOrder.customizations,
-    });
+    // Process each modification
+    for (const mod of modifications) {
+      if (mod.confidence < 0.5) {
+        this.logger.debug(`Skipping modification with low confidence: ${mod.confidence}`);
+        continue;
+      }
 
-    if (currentOrder.status.canBeModified()) {
-      currentOrder.addItem(orderItem);
-      await this.orderRepository.save(currentOrder);
+      const targetIndex = this.resolveItemIndex(mod, currentOrder);
+      if (targetIndex === -1) {
+        const drinkName = mod.drinkName ?? 'none';
+        const itemIndex = mod.itemIndex ?? 'none';
+        this.logger.warn(
+          `Could not resolve item for modification: drinkName=${drinkName}, itemIndex=${itemIndex}`,
+        );
+        continue;
+      }
+
+      try {
+        if (mod.action === 'remove') {
+          currentOrder.removeItemByIndex(targetIndex);
+          this.logger.debug(`Removed item at index ${targetIndex}`);
+        } else if (mod.action === 'modify') {
+          currentOrder.updateItemByIndex(targetIndex, (item) => {
+            let updatedItem = item;
+
+            // Apply quantity change
+            if (mod.changes?.newQuantity !== undefined) {
+              if (mod.changes.newQuantity === 0) {
+                // Quantity 0 means remove - handle this case
+                currentOrder.removeItemByIndex(targetIndex);
+                return item; // Return original, but it will be removed
+              }
+              updatedItem = updatedItem.withQuantity(mod.changes.newQuantity);
+            }
+
+            // Apply size change
+            if (mod.changes?.newSize) {
+              updatedItem = updatedItem.withSize(mod.changes.newSize);
+            }
+
+            // Apply customization additions
+            if (mod.changes?.addCustomizations) {
+              updatedItem = updatedItem.withCustomizations(mod.changes.addCustomizations);
+            }
+
+            // Apply customization removals
+            if (mod.changes?.removeCustomizations && mod.changes.removeCustomizations.length > 0) {
+              const clearedCustomizations: Record<string, undefined> = {};
+              for (const key of mod.changes.removeCustomizations) {
+                clearedCustomizations[key] = undefined;
+              }
+              updatedItem = updatedItem.withCustomizations(
+                clearedCustomizations as Partial<typeof updatedItem.customizations>,
+              );
+            }
+
+            return updatedItem;
+          });
+          this.logger.debug(`Modified item at index ${targetIndex}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error applying modification: ${message}`);
+      }
+    }
+
+    // Save the modified order
+    await this.orderRepository.saveWithConversation(currentOrder, conversation.id.toString());
+
+    // If order is now empty after removals, return null
+    if (currentOrder.isEmpty()) {
+      conversation.clearCurrentOrder();
+      return null;
     }
 
     return currentOrder;
   }
 
   /**
+   * Resolve the target item index from a modification request.
+   * Uses itemIndex if provided (1-based), otherwise searches by drinkName.
+   * Returns 0-based index or -1 if not found.
+   */
+  private resolveItemIndex(mod: ExtractedModificationDto, order: Order): number {
+    // If itemIndex is provided, use it (convert from 1-based to 0-based)
+    if (mod.itemIndex !== undefined && mod.itemIndex > 0) {
+      const zeroBasedIndex = mod.itemIndex - 1;
+      if (zeroBasedIndex >= 0 && zeroBasedIndex < order.items.length) {
+        return zeroBasedIndex;
+      }
+      this.logger.warn(
+        `Invalid itemIndex: ${mod.itemIndex}, order has ${order.items.length} items`,
+      );
+      return -1;
+    }
+
+    // Otherwise, search by drink name
+    if (mod.drinkName) {
+      return order.findItemIndexByName(mod.drinkName);
+    }
+
+    return -1;
+  }
+
+  /**
    * Handle confirm_order intent.
+   * The order stays visible in the conversation after confirmation
+   * so the user can reference it for payment or see a summary.
    */
   private async handleConfirmIntent(
     currentOrder: Order | null,
@@ -321,14 +468,47 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
     try {
       if (currentOrder.canBeConfirmed()) {
         currentOrder.confirm();
-        // In a real system, we might also mark it as completed after confirmation
-        currentOrder.complete();
         await this.orderRepository.saveWithConversation(currentOrder, conversation.id.toString());
-        conversation.clearCurrentOrder();
+        // Note: We don't clear the order from conversation so user can still see it
+        // and reference it for payment. A new order will replace it when created.
       }
       return currentOrder;
     } catch {
       // Order might not be in a state that can be confirmed
+      return currentOrder;
+    }
+  }
+
+  /**
+   * Handle process_payment intent.
+   * Completes the order (simulating payment) and clears it from conversation.
+   */
+  private async handlePaymentIntent(
+    currentOrder: Order | null,
+    conversation: Conversation,
+  ): Promise<Order | null> {
+    if (!currentOrder) {
+      return null;
+    }
+
+    try {
+      // If order is confirmed, complete it
+      if (currentOrder.status.isConfirmed()) {
+        currentOrder.complete();
+        await this.orderRepository.saveWithConversation(currentOrder, conversation.id.toString());
+        conversation.clearCurrentOrder();
+        return null; // Order is completed, clear from active conversation
+      }
+      // If order is pending, confirm and complete it
+      if (currentOrder.status.isPending() && currentOrder.canBeConfirmed()) {
+        currentOrder.confirm();
+        currentOrder.complete();
+        await this.orderRepository.saveWithConversation(currentOrder, conversation.id.toString());
+        conversation.clearCurrentOrder();
+        return null;
+      }
+      return currentOrder;
+    } catch {
       return currentOrder;
     }
   }
@@ -393,9 +573,11 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
 
   /**
    * Build order summary for output.
+   * Includes 1-based index for each item for user reference.
    */
   private buildOrderSummary(order: Order): OrderSummaryDto {
-    const items: OrderItemSummaryDto[] = order.items.map((item) => ({
+    const items: OrderItemSummaryDto[] = order.items.map((item, idx) => ({
+      index: idx + 1, // 1-based index for user reference
       drinkName: item.drinkName,
       size: item.size?.toString() ?? null,
       quantity: item.quantity,
@@ -423,15 +605,19 @@ export class ProcessMessageUseCase implements IProcessMessagePort {
    */
   private getSuggestedActions(order: Order | null): string[] {
     if (!order) {
-      return ['Browse our menu', 'Ask about a specific drink', 'Start an order'];
+      return ['Ver el menú', 'Preguntar por una bebida', 'Hacer un pedido'];
     }
 
     if (order.status.isPending()) {
-      return ['Add another drink', 'Modify your order', 'Confirm your order', 'Cancel your order'];
+      return ['Agregar otra bebida', 'Modificar mi orden', 'Confirmar mi orden', 'Cancelar orden'];
     }
 
-    if (order.status.isConfirmed() || order.status.isCompleted()) {
-      return ['Start a new order', 'Browse our menu'];
+    if (order.status.isConfirmed()) {
+      return ['Proceder al pago', 'Iniciar nueva orden', 'Ver el menú'];
+    }
+
+    if (order.status.isCompleted()) {
+      return ['Iniciar nueva orden', 'Ver el menú'];
     }
 
     return [];

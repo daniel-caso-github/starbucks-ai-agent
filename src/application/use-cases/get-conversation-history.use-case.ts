@@ -231,26 +231,26 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
   }
 
   /**
-   * Get the welcome message for new conversations.
+   * Obtener el mensaje de bienvenida para nuevas conversaciones.
    */
   private getWelcomeMessage(): string {
     return (
-      "Welcome to Starbucks! ☕ I'm your AI barista, here to help you find " +
-      'the perfect drink. You can ask me about our menu, get recommendations, ' +
-      'or place an order. What can I get started for you today?'
+      '¡Bienvenido a Starbucks! ☕ Soy tu barista AI, aquí para ayudarte a encontrar ' +
+      'la bebida perfecta. Puedes preguntarme sobre nuestro menú, pedir recomendaciones, ' +
+      'o hacer un pedido. ¿Qué te puedo servir hoy?'
     );
   }
 
   /**
-   * Get suggested prompts for new conversations.
+   * Obtener sugerencias de prompts para nuevas conversaciones.
    */
   private getSuggestedPrompts(): string[] {
     return [
-      "What's your most popular drink?",
-      "I'd like something sweet with caramel",
-      'What iced drinks do you have?',
-      'Can you recommend something with oat milk?',
-      'I need something with lots of caffeine',
+      '¿Cuál es su bebida más popular?',
+      'Quiero algo dulce con caramelo',
+      '¿Qué bebidas frías tienen?',
+      '¿Me pueden recomendar algo con leche de avena?',
+      'Necesito algo con mucha cafeína',
     ];
   }
 }

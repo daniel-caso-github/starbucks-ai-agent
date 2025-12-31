@@ -29,9 +29,10 @@ export class CustomizationOptionsDocument {
 @Schema({
   collection: 'drinks',
   timestamps: true,
+  _id: false, // Disable auto ObjectId, we use custom string _id
 })
 export class DrinkDocument {
-  @Prop({ required: true, unique: true })
+  @Prop({ type: String, required: true })
   _id!: string;
 
   @Prop({ required: true })
@@ -49,10 +50,10 @@ export class DrinkDocument {
   @Prop({ type: CustomizationOptionsDocument, default: {} })
   customizationOptions!: CustomizationOptionsDocument;
 
-  @Prop()
+  // Managed by timestamps: true
   createdAt!: Date;
 
-  @Prop()
+  // Managed by timestamps: true
   updatedAt!: Date;
 }
 
