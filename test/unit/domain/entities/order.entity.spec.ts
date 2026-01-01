@@ -174,6 +174,115 @@ describe('Order', () => {
     });
   });
 
+  describe('index-based operations', () => {
+    describe('removeItemByIndex', () => {
+      it('should remove item at valid index', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte' }));
+        order.addItem(createTestItem({ drinkName: 'Cappuccino' }));
+
+        order.removeItemByIndex(0);
+
+        expect(order.items).toHaveLength(1);
+        expect(order.items[0].drinkName).toBe('Cappuccino');
+      });
+
+      it('should throw error for invalid index', () => {
+        const order = Order.create();
+        order.addItem(createTestItem());
+
+        expect(() => order.removeItemByIndex(5)).toThrow(InvalidOrderException);
+        expect(() => order.removeItemByIndex(-1)).toThrow(InvalidOrderException);
+      });
+
+      it('should throw error when order is not modifiable', () => {
+        const order = Order.create();
+        order.addItem(createTestItem());
+        order.confirm();
+
+        expect(() => order.removeItemByIndex(0)).toThrow(InvalidOrderException);
+      });
+    });
+
+    describe('updateItemByIndex', () => {
+      it('should update item at valid index', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte', quantity: 1 }));
+
+        order.updateItemByIndex(0, (item) => item.withQuantity(3));
+
+        expect(order.items[0].quantity).toBe(3);
+      });
+
+      it('should update item size', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte', size: DrinkSize.tall() }));
+
+        order.updateItemByIndex(0, (item) => item.withSize(DrinkSize.venti()));
+
+        expect(order.items[0].size?.toString()).toBe('venti');
+      });
+
+      it('should throw error for invalid index', () => {
+        const order = Order.create();
+        order.addItem(createTestItem());
+
+        expect(() => order.updateItemByIndex(5, (item) => item)).toThrow(InvalidOrderException);
+      });
+
+      it('should throw error when quantity would exceed max', () => {
+        const order = Order.create();
+        // Add different items to approach the limit (max 20 total)
+        order.addItem(createTestItem({ drinkName: 'Latte', quantity: 6 }));
+        order.addItem(createTestItem({ drinkName: 'Cappuccino', quantity: 6 }));
+        order.addItem(createTestItem({ drinkName: 'Mocha', quantity: 6 })); // 18 total
+
+        // Trying to update last item to push over 20 should fail
+        expect(() => order.updateItemByIndex(2, (item) => item.withQuantity(10))).toThrow(
+          InvalidOrderException,
+        );
+      });
+    });
+
+    describe('findItemIndexByName', () => {
+      it('should find item by name (case-insensitive)', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Caramel Latte' }));
+        order.addItem(createTestItem({ drinkName: 'Cappuccino' }));
+
+        expect(order.findItemIndexByName('caramel latte')).toBe(0);
+        expect(order.findItemIndexByName('CAPPUCCINO')).toBe(1);
+      });
+
+      it('should return -1 when item not found', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte' }));
+
+        expect(order.findItemIndexByName('Mocha')).toBe(-1);
+      });
+    });
+
+    describe('findAllItemIndicesByName', () => {
+      it('should find all items with same name', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte' }));
+        order.addItem(createTestItem({ drinkName: 'Cappuccino' }));
+        order.addItem(createTestItem({ drinkName: 'Latte' }));
+
+        const indices = order.findAllItemIndicesByName('Latte');
+
+        expect(indices).toEqual([0, 2]);
+      });
+
+      it('should return empty array when no items found', () => {
+        const order = Order.create();
+        order.addItem(createTestItem({ drinkName: 'Latte' }));
+
+        expect(order.findAllItemIndicesByName('Mocha')).toEqual([]);
+      });
+    });
+  });
+
   describe('order lifecycle', () => {
     it('should confirm a pending order with items', () => {
       const order = Order.create();

@@ -65,6 +65,9 @@ export interface OrderSummaryDto {
  * Summary of an item in the order.
  */
 export interface OrderItemSummaryDto {
+  /** 1-based index of the item in the order (for user reference) */
+  index: number;
+
   /** Name of the drink */
   drinkName: string;
 

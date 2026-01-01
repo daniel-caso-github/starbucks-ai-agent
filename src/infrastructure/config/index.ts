@@ -1,2 +1,4 @@
-// Config modules will be exported here
-export {};
+// Config exports
+export * from './env.validation';
+export * from './env-config.service';
+export * from './config.module';

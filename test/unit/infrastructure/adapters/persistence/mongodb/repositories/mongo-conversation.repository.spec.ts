@@ -5,8 +5,31 @@ import {
   ConversationDocument,
   MessageDocument,
 } from '@infrastructure/adapters/persistence/mongodb/schemas';
+import { CacheService } from '@infrastructure/cache';
 import { Conversation } from '@domain/entities';
 import { ConversationId, OrderId } from '@domain/value-objects';
+
+// Mock CacheService
+const mockCacheService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  getConversationHistory: jest.fn().mockResolvedValue(null),
+  setConversationHistory: jest.fn().mockResolvedValue(undefined),
+  invalidateConversationHistory: jest.fn().mockResolvedValue(undefined),
+  getActiveOrder: jest.fn().mockResolvedValue(null),
+  setActiveOrder: jest.fn().mockResolvedValue(undefined),
+  invalidateActiveOrder: jest.fn().mockResolvedValue(undefined),
+  getConversationContext: jest.fn().mockResolvedValue(null),
+  setConversationContext: jest.fn().mockResolvedValue(undefined),
+  getDrinksSearch: jest.fn().mockResolvedValue(null),
+  setDrinksSearch: jest.fn().mockResolvedValue(undefined),
+  getAllDrinks: jest.fn().mockResolvedValue(null),
+  setAllDrinks: jest.fn().mockResolvedValue(undefined),
+  getExactQuery: jest.fn().mockResolvedValue(null),
+  setExactQuery: jest.fn().mockResolvedValue(undefined),
+  normalizeAndHash: jest.fn().mockReturnValue('mock-hash'),
+};
 
 // Type definitions for mock model
 type MockConversationDocument = {
@@ -18,8 +41,10 @@ type MockConversationDocument = {
 };
 
 interface MockModel {
-  findByIdAndUpdate: jest.Mock;
-  findById: jest.Mock;
+  exists: jest.Mock;
+  updateOne: jest.Mock;
+  create: jest.Mock;
+  findOne: jest.Mock;
   aggregate: jest.Mock;
   deleteOne: jest.Mock;
   countDocuments: jest.Mock;
@@ -57,8 +82,10 @@ describe('MongoConversationRepository', () => {
 
   beforeEach(async () => {
     mockModel = {
-      findByIdAndUpdate: jest.fn(),
-      findById: jest.fn(),
+      exists: jest.fn(),
+      updateOne: jest.fn(),
+      create: jest.fn(),
+      findOne: jest.fn(),
       aggregate: jest.fn(),
       deleteOne: jest.fn(),
       countDocuments: jest.fn(),
@@ -71,6 +98,10 @@ describe('MongoConversationRepository', () => {
           provide: getModelToken(ConversationDocument.name),
           useValue: mockModel,
         },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
+        },
       ],
     }).compile();
 
@@ -78,25 +109,45 @@ describe('MongoConversationRepository', () => {
   });
 
   describe('save', () => {
-    it('should save a conversation using upsert', async () => {
+    it('should create a new conversation when it does not exist', async () => {
       // Arrange
       const conversation = Conversation.create(ConversationId.fromString('conv_new123'));
       conversation.addUserMessage('Hello');
-      mockModel.findByIdAndUpdate.mockResolvedValue(createMockConversationDocument());
+      mockModel.exists.mockResolvedValue(null);
+      mockModel.create.mockResolvedValue(createMockConversationDocument({ id: 'conv_new123' }));
 
       // Act
       await repository.save(conversation);
 
       // Assert
-      expect(mockModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'conv_new123',
-        expect.objectContaining({
+      expect(mockModel.exists).toHaveBeenCalledWith({ _id: 'conv_new123' });
+      expect(mockModel.create).toHaveBeenCalledWith({
+        _id: 'conv_new123',
+        messages: expect.any(Array),
+        currentOrderId: null,
+      });
+    });
+
+    it('should update existing conversation', async () => {
+      // Arrange
+      const conversation = Conversation.create(ConversationId.fromString('conv_existing'));
+      conversation.addUserMessage('Hello again');
+      mockModel.exists.mockResolvedValue({ _id: 'conv_existing' });
+      mockModel.updateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      // Act
+      await repository.save(conversation);
+
+      // Assert
+      expect(mockModel.exists).toHaveBeenCalledWith({ _id: 'conv_existing' });
+      expect(mockModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'conv_existing' },
+        {
           $set: expect.objectContaining({
             messages: expect.any(Array),
             currentOrderId: null,
           }),
-        }),
-        { upsert: true, new: true },
+        },
       );
     });
 
@@ -104,21 +155,27 @@ describe('MongoConversationRepository', () => {
       // Arrange
       const conversation = Conversation.create();
       conversation.setCurrentOrder(OrderId.fromString('ord_test'));
-      mockModel.findByIdAndUpdate.mockResolvedValue(createMockConversationDocument());
+      mockModel.exists.mockResolvedValue(null);
+      mockModel.create.mockResolvedValue(createMockConversationDocument());
 
       // Act
       await repository.save(conversation);
 
       // Assert
-      expect(mockModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(mockModel.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          $set: expect.objectContaining({
-            currentOrderId: 'ord_test',
-          }),
+          currentOrderId: 'ord_test',
         }),
-        expect.any(Object),
       );
+    });
+
+    it('should throw error when save fails', async () => {
+      // Arrange
+      const conversation = Conversation.create();
+      mockModel.exists.mockRejectedValue(new Error('Database error'));
+
+      // Act & Assert
+      await expect(repository.save(conversation)).rejects.toThrow('Database error');
     });
   });
 
@@ -129,7 +186,7 @@ describe('MongoConversationRepository', () => {
         id: 'conv_found123',
         messages: [{ role: 'user', content: 'Hello', timestamp: new Date() }],
       });
-      mockModel.findById.mockResolvedValue(mockDoc);
+      mockModel.findOne.mockResolvedValue(mockDoc);
 
       // Act
       const result = await repository.findById(ConversationId.fromString('conv_found123'));
@@ -138,17 +195,33 @@ describe('MongoConversationRepository', () => {
       expect(result).toBeInstanceOf(Conversation);
       expect(result?.id.toString()).toBe('conv_found123');
       expect(result?.messages).toHaveLength(1);
+      expect(mockModel.findOne).toHaveBeenCalledWith({ _id: 'conv_found123' });
     });
 
     it('should return null when not found', async () => {
       // Arrange
-      mockModel.findById.mockResolvedValue(null);
+      mockModel.findOne.mockResolvedValue(null);
 
       // Act
       const result = await repository.findById(ConversationId.fromString('conv_notfound'));
 
       // Assert
       expect(result).toBeNull();
+    });
+
+    it('should return conversation with currentOrderId', async () => {
+      // Arrange
+      const mockDoc = createMockConversationDocument({
+        id: 'conv_with_order',
+        currentOrderId: 'ord_abc123',
+      });
+      mockModel.findOne.mockResolvedValue(mockDoc);
+
+      // Act
+      const result = await repository.findById(ConversationId.fromString('conv_with_order'));
+
+      // Assert
+      expect(result?.currentOrderId?.toString()).toBe('ord_abc123');
     });
   });
 
@@ -210,6 +283,24 @@ describe('MongoConversationRepository', () => {
         expect.objectContaining({
           $project: expect.objectContaining({
             messages: { $slice: ['$messages', -10] },
+          }),
+        }),
+      ]);
+    });
+
+    it('should support custom limit', async () => {
+      // Arrange
+      mockModel.aggregate.mockResolvedValue([createMockConversationDocument()]);
+
+      // Act
+      await repository.getRecentHistory(ConversationId.fromString('conv_test'), 5);
+
+      // Assert
+      expect(mockModel.aggregate).toHaveBeenCalledWith([
+        expect.any(Object),
+        expect.objectContaining({
+          $project: expect.objectContaining({
+            messages: { $slice: ['$messages', -5] },
           }),
         }),
       ]);

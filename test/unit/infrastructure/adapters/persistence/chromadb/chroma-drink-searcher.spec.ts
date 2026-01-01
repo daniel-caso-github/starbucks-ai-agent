@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { ChromaDrinkSearcher } from '@infrastructure/adapters/persistence/chromadb';
+import { EnvConfigService } from '@infrastructure/config';
+import { CacheService } from '@infrastructure/cache';
 import { Drink } from '@domain/entities';
 import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
+import { IEmbeddingGeneratorPort } from '@application/ports/outbound';
 
 // Mock chromadb module
 jest.mock('chromadb', () => ({
@@ -10,6 +12,28 @@ jest.mock('chromadb', () => ({
     getOrCreateCollection: jest.fn(),
   })),
 }));
+
+// Mock CacheService
+const mockCacheService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  getConversationHistory: jest.fn().mockResolvedValue(null),
+  setConversationHistory: jest.fn().mockResolvedValue(undefined),
+  invalidateConversationHistory: jest.fn().mockResolvedValue(undefined),
+  getActiveOrder: jest.fn().mockResolvedValue(null),
+  setActiveOrder: jest.fn().mockResolvedValue(undefined),
+  invalidateActiveOrder: jest.fn().mockResolvedValue(undefined),
+  getConversationContext: jest.fn().mockResolvedValue(null),
+  setConversationContext: jest.fn().mockResolvedValue(undefined),
+  getDrinksSearch: jest.fn().mockResolvedValue(null),
+  setDrinksSearch: jest.fn().mockResolvedValue(undefined),
+  getAllDrinks: jest.fn().mockResolvedValue(null),
+  setAllDrinks: jest.fn().mockResolvedValue(undefined),
+  getExactQuery: jest.fn().mockResolvedValue(null),
+  setExactQuery: jest.fn().mockResolvedValue(undefined),
+  normalizeAndHash: jest.fn().mockReturnValue('mock-hash'),
+};
 
 describe('ChromaDrinkSearcher', () => {
   let searcher: ChromaDrinkSearcher;
@@ -19,7 +43,8 @@ describe('ChromaDrinkSearcher', () => {
     upsert: jest.Mock;
     delete: jest.Mock;
   };
-  let mockConfigService: jest.Mocked<ConfigService>;
+  let mockEnvConfigService: Partial<EnvConfigService>;
+  let mockEmbeddingGenerator: jest.Mocked<IEmbeddingGeneratorPort>;
 
   const createTestDrink = (
     overrides: Partial<{
@@ -60,9 +85,16 @@ describe('ChromaDrinkSearcher', () => {
       delete: jest.fn(),
     };
 
-    mockConfigService = {
-      get: jest.fn().mockReturnValue('http://localhost:8000'),
-    } as unknown as jest.Mocked<ConfigService>;
+    mockEnvConfigService = {
+      chromaHost: 'http://localhost:8000',
+    };
+
+    mockEmbeddingGenerator = {
+      generate: jest.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3], dimensions: 3 }),
+      generateBatch: jest.fn().mockResolvedValue([
+        { embedding: [0.1, 0.2, 0.3], dimensions: 3 },
+      ]),
+    } as unknown as jest.Mocked<IEmbeddingGeneratorPort>;
 
     // Get the mocked ChromaClient
     const { ChromaClient } = require('chromadb');
@@ -74,8 +106,16 @@ describe('ChromaDrinkSearcher', () => {
       providers: [
         ChromaDrinkSearcher,
         {
-          provide: ConfigService,
-          useValue: mockConfigService,
+          provide: EnvConfigService,
+          useValue: mockEnvConfigService,
+        },
+        {
+          provide: 'IEmbeddingGenerator',
+          useValue: mockEmbeddingGenerator,
+        },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
         },
       ],
     }).compile();
@@ -89,7 +129,13 @@ describe('ChromaDrinkSearcher', () => {
   describe('onModuleInit', () => {
     it('should connect to ChromaDB and create collection', async () => {
       // The collection is already created in beforeEach
-      expect(mockConfigService.get).toHaveBeenCalledWith('CHROMA_HOST', 'http://localhost:8000');
+      // Verify ChromaClient was instantiated with parsed URL options
+      const { ChromaClient } = require('chromadb');
+      expect(ChromaClient).toHaveBeenCalledWith({
+        host: 'localhost',
+        port: 8000,
+        ssl: false,
+      });
     });
   });
 
@@ -175,6 +221,86 @@ describe('ChromaDrinkSearcher', () => {
       expect(results).toHaveLength(2);
       expect(results[0].score).toBeGreaterThan(results[1].score);
     });
+
+    it('should handle null distances', async () => {
+      // Arrange
+      const drink = createTestDrink({ id: 'drk_1', name: 'Latte' });
+      mockCollection.query.mockResolvedValue({
+        ids: [['drk_1']],
+        distances: null,
+        metadatas: [[createMockMetadata(drink)]],
+      });
+
+      // Act
+      const results = await searcher.findSimilar('latte');
+
+      // Assert
+      expect(results).toHaveLength(1);
+      expect(results[0].score).toBe(1); // 1 / (1 + 0)
+    });
+
+    it('should filter only with minPrice', async () => {
+      // Arrange
+      mockCollection.query.mockResolvedValue({
+        ids: [[]],
+        distances: [[]],
+        metadatas: [[]],
+      });
+
+      // Act
+      await searcher.findSimilar('latte', 5, {
+        minPrice: Money.fromDollars(4),
+      });
+
+      // Assert
+      expect(mockCollection.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { basePriceCents: { $gte: 400 } },
+        }),
+      );
+    });
+
+    it('should filter with supportsSize', async () => {
+      // Arrange
+      mockCollection.query.mockResolvedValue({
+        ids: [[]],
+        distances: [[]],
+        metadatas: [[]],
+      });
+
+      // Act
+      await searcher.findSimilar('latte', 5, {
+        supportsSize: true,
+      });
+
+      // Assert
+      expect(mockCollection.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { supportsSize: { $eq: true } },
+        }),
+      );
+    });
+
+    it('should filter with supportsSyrup', async () => {
+      // Arrange
+      mockCollection.query.mockResolvedValue({
+        ids: [[]],
+        distances: [[]],
+        metadatas: [[]],
+      });
+
+      // Act
+      await searcher.findSimilar('latte', 5, {
+        supportsSyrup: false,
+      });
+
+      // Assert
+      expect(mockCollection.query).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { supportsSyrup: { $eq: false } },
+        }),
+      );
+    });
   });
 
   describe('findByName', () => {
@@ -211,6 +337,20 @@ describe('ChromaDrinkSearcher', () => {
       // Assert
       expect(result).toBeNull();
     });
+
+    it('should return null when metadata is null', async () => {
+      // Arrange
+      mockCollection.get.mockResolvedValue({
+        ids: ['drk_found'],
+        metadatas: [null],
+      });
+
+      // Act
+      const result = await searcher.findByName('Latte');
+
+      // Assert
+      expect(result).toBeNull();
+    });
   });
 
   describe('findById', () => {
@@ -242,6 +382,20 @@ describe('ChromaDrinkSearcher', () => {
 
       // Act
       const result = await searcher.findById(DrinkId.fromString('drk_notfound'));
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('should return null when metadata is null', async () => {
+      // Arrange
+      mockCollection.get.mockResolvedValue({
+        ids: ['drk_byid'],
+        metadatas: [null],
+      });
+
+      // Act
+      const result = await searcher.findById(DrinkId.fromString('drk_byid'));
 
       // Assert
       expect(result).toBeNull();

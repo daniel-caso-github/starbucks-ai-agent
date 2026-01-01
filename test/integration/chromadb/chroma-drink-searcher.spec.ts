@@ -1,8 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { ChromaDrinkSearcher } from '@infrastructure/adapters';
+import { EnvConfigService } from '@infrastructure/config';
+import { CacheService } from '@infrastructure/cache';
 import { Drink } from '@domain/entities';
 import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
+import { IEmbeddingGeneratorPort } from '@application/ports/outbound';
+
+// Mock CacheService for integration tests
+const mockCacheService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  getConversationHistory: jest.fn().mockResolvedValue(null),
+  setConversationHistory: jest.fn().mockResolvedValue(undefined),
+  invalidateConversationHistory: jest.fn().mockResolvedValue(undefined),
+  getActiveOrder: jest.fn().mockResolvedValue(null),
+  setActiveOrder: jest.fn().mockResolvedValue(undefined),
+  invalidateActiveOrder: jest.fn().mockResolvedValue(undefined),
+  getConversationContext: jest.fn().mockResolvedValue(null),
+  setConversationContext: jest.fn().mockResolvedValue(undefined),
+  getDrinksSearch: jest.fn().mockResolvedValue(null),
+  setDrinksSearch: jest.fn().mockResolvedValue(undefined),
+  getAllDrinks: jest.fn().mockResolvedValue(null),
+  setAllDrinks: jest.fn().mockResolvedValue(undefined),
+  getExactQuery: jest.fn().mockResolvedValue(null),
+  setExactQuery: jest.fn().mockResolvedValue(undefined),
+  normalizeAndHash: jest.fn().mockReturnValue('mock-hash'),
+};
 
 // Mock the entire chromadb module
 jest.mock('chromadb', () => {
@@ -18,23 +42,25 @@ jest.mock('chromadb', () => {
             name: 'caramel latte',
             displayName: 'Caramel Latte',
             description: 'Sweet caramel coffee',
-            basePriceCents: '450',
-            milk: 'true',
-            syrup: 'true',
-            sweetener: 'false',
-            topping: 'false',
-            size: 'true',
+            basePriceCents: 450,
+            currency: 'USD',
+            supportsMilk: true,
+            supportsSyrup: true,
+            supportsSweetener: false,
+            supportsTopping: false,
+            supportsSize: true,
           },
           {
             name: 'mocha',
             displayName: 'Mocha',
             description: 'Chocolate coffee drink',
-            basePriceCents: '500',
-            milk: 'true',
-            syrup: 'true',
-            sweetener: 'true',
-            topping: 'true',
-            size: 'true',
+            basePriceCents: 500,
+            currency: 'USD',
+            supportsMilk: true,
+            supportsSyrup: true,
+            supportsSweetener: true,
+            supportsTopping: true,
+            supportsSize: true,
           },
         ],
       ],
@@ -46,12 +72,13 @@ jest.mock('chromadb', () => {
           name: 'caramel latte',
           displayName: 'Caramel Latte',
           description: 'Sweet caramel coffee',
-          basePriceCents: '450',
-          milk: 'true',
-          syrup: 'true',
-          sweetener: 'false',
-          topping: 'false',
-          size: 'true',
+          basePriceCents: 450,
+          currency: 'USD',
+          supportsMilk: true,
+          supportsSyrup: true,
+          supportsSweetener: false,
+          supportsTopping: false,
+          supportsSize: true,
         },
       ],
     }),
@@ -69,6 +96,7 @@ jest.mock('chromadb', () => {
 describe('ChromaDrinkSearcher', () => {
   let searcher: ChromaDrinkSearcher;
   let module: TestingModule;
+  let mockEmbeddingGenerator: jest.Mocked<IEmbeddingGeneratorPort>;
 
   const createTestDrink = (overrides?: {
     id?: string;
@@ -86,14 +114,29 @@ describe('ChromaDrinkSearcher', () => {
   };
 
   beforeAll(async () => {
+    mockEmbeddingGenerator = {
+      generate: jest.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3], dimensions: 3 }),
+      generateBatch: jest.fn().mockResolvedValue([
+        { embedding: [0.1, 0.2, 0.3], dimensions: 3 },
+      ]),
+    } as unknown as jest.Mocked<IEmbeddingGeneratorPort>;
+
     module = await Test.createTestingModule({
       providers: [
         ChromaDrinkSearcher,
         {
-          provide: ConfigService,
+          provide: EnvConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue('http://localhost:8000'),
+            chromaHost: 'http://localhost:8000',
           },
+        },
+        {
+          provide: 'IEmbeddingGenerator',
+          useValue: mockEmbeddingGenerator,
+        },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
         },
       ],
     }).compile();

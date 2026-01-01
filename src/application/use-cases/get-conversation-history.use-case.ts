@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Either, left, right } from '../common/either';
 import {
   ConversationHistoryOutputDto,
@@ -33,6 +33,8 @@ import { IConversationHistoryPort, IConversationRepositoryPort } from '../ports'
  */
 @Injectable()
 export class GetConversationHistoryUseCase implements IConversationHistoryPort {
+  private readonly logger = new Logger(GetConversationHistoryUseCase.name);
+
   constructor(
     @Inject('IConversationRepositoryPort')
     private readonly conversationRepository: IConversationRepositoryPort,
@@ -62,10 +64,13 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
   async execute(
     input: GetConversationHistoryInputDto,
   ): Promise<Either<ApplicationError, ConversationHistoryOutputDto>> {
+    this.logger.debug(`Getting conversation history: ${input.conversationId}`);
+
     try {
       // Step 1: Validate input
       const validationResult = this.validateInput(input);
       if (validationResult.isLeft()) {
+        this.logger.warn(`Validation failed: ${validationResult.value.message}`);
         return validationResult;
       }
 
@@ -76,6 +81,7 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
       try {
         conversationId = ConversationId.fromString(input.conversationId);
       } catch {
+        this.logger.warn(`Invalid conversation ID format: ${input.conversationId}`);
         return left(new ConversationNotFoundError(input.conversationId));
       }
 
@@ -86,15 +92,24 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
       );
 
       if (!conversation) {
+        this.logger.debug(`Conversation not found: ${input.conversationId}`);
         return left(new ConversationNotFoundError(input.conversationId));
       }
 
       // Step 4: Map to output DTO
       const output = this.mapToOutputDto(conversation);
 
+      this.logger.debug(
+        `Retrieved ${output.messageCount} messages for conversation ${input.conversationId}`,
+      );
+
       return right(output);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to get conversation history: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -123,6 +138,8 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
   async startConversation(
     input: StartConversationInputDto,
   ): Promise<Either<ApplicationError, StartConversationOutputDto>> {
+    this.logger.debug('Starting new conversation');
+
     try {
       // Create a new conversation
       const conversation = Conversation.create();
@@ -135,6 +152,8 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
       // Save the conversation
       await this.conversationRepository.save(conversation);
 
+      this.logger.log(`New conversation started: ${conversation.id.toString()}`);
+
       // Build welcome response
       const output: StartConversationOutputDto = {
         conversationId: conversation.id.toString(),
@@ -145,6 +164,10 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
       return right(output);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to start conversation: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -158,8 +181,11 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
   async exists(conversationId: string): Promise<boolean> {
     try {
       const id = ConversationId.fromString(conversationId);
-      return await this.conversationRepository.exists(id);
+      const exists = await this.conversationRepository.exists(id);
+      this.logger.debug(`Conversation ${conversationId} exists: ${String(exists)}`);
+      return exists;
     } catch {
+      this.logger.debug(`Invalid conversation ID format: ${conversationId}`);
       return false;
     }
   }
@@ -171,18 +197,32 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
    * @returns Either an error or a success boolean
    */
   async deleteConversation(conversationId: string): Promise<Either<ApplicationError, boolean>> {
+    this.logger.debug(`Deleting conversation: ${conversationId}`);
+
     try {
       let id: ConversationId;
       try {
         id = ConversationId.fromString(conversationId);
       } catch {
+        this.logger.warn(`Invalid conversation ID format: ${conversationId}`);
         return left(new ConversationNotFoundError(conversationId));
       }
 
       const deleted = await this.conversationRepository.delete(id);
+
+      if (deleted) {
+        this.logger.log(`Conversation deleted: ${conversationId}`);
+      } else {
+        this.logger.debug(`Conversation not found for deletion: ${conversationId}`);
+      }
+
       return right(deleted);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to delete conversation: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -231,26 +271,26 @@ export class GetConversationHistoryUseCase implements IConversationHistoryPort {
   }
 
   /**
-   * Get the welcome message for new conversations.
+   * Obtener el mensaje de bienvenida para nuevas conversaciones.
    */
   private getWelcomeMessage(): string {
     return (
-      "Welcome to Starbucks! ☕ I'm your AI barista, here to help you find " +
-      'the perfect drink. You can ask me about our menu, get recommendations, ' +
-      'or place an order. What can I get started for you today?'
+      '¡Bienvenido a Starbucks! ☕ Soy tu barista AI, aquí para ayudarte a encontrar ' +
+      'la bebida perfecta. Puedes preguntarme sobre nuestro menú, pedir recomendaciones, ' +
+      'o hacer un pedido. ¿Qué te puedo servir hoy?'
     );
   }
 
   /**
-   * Get suggested prompts for new conversations.
+   * Obtener sugerencias de prompts para nuevas conversaciones.
    */
   private getSuggestedPrompts(): string[] {
     return [
-      "What's your most popular drink?",
-      "I'd like something sweet with caramel",
-      'What iced drinks do you have?',
-      'Can you recommend something with oat milk?',
-      'I need something with lots of caffeine',
+      '¿Cuál es su bebida más popular?',
+      'Quiero algo dulce con caramelo',
+      '¿Qué bebidas frías tienen?',
+      '¿Me pueden recomendar algo con leche de avena?',
+      'Necesito algo con mucha cafeína',
     ];
   }
 }

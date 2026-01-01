@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Either, left, right } from '../common/either';
 import {
   AddItemToOrderInputDto,
@@ -38,6 +38,8 @@ import { ICreateOrderPort } from '@application/ports/inbound/create-order.port';
  */
 @Injectable()
 export class CreateOrderUseCase implements ICreateOrderPort {
+  private readonly logger = new Logger(CreateOrderUseCase.name);
+
   constructor(
     @Inject('IConversationRepository')
     private readonly conversationRepository: IConversationRepositoryPort,
@@ -54,22 +56,27 @@ export class CreateOrderUseCase implements ICreateOrderPort {
    * the item will be added to that order. Otherwise, a new order is created.
    */
   async execute(input: CreateOrderInputDto): Promise<Either<ApplicationError, OrderOutputDto>> {
+    this.logger.debug(`Creating order for conversation: ${input.conversationId}`);
+
     try {
       // Validate input
       const validationResult = this.validateCreateInput(input);
       if (validationResult.isLeft()) {
+        this.logger.warn(`Validation failed: ${validationResult.value.message}`);
         return validationResult;
       }
 
       // Verify conversation exists
       const conversation = await this.findConversation(input.conversationId);
       if (!conversation) {
+        this.logger.warn(`Conversation not found: ${input.conversationId}`);
         return left(new ConversationNotFoundError(input.conversationId));
       }
 
       // Find the drink
       const drink = await this.drinkRepository.findByName(input.drinkName);
       if (!drink) {
+        this.logger.warn(`Drink not found: ${input.drinkName}`);
         return left(new DrinkNotFoundError(input.drinkName));
       }
 
@@ -88,10 +95,12 @@ export class CreateOrderUseCase implements ICreateOrderPort {
 
       // Get or create order
       let order = await this.orderRepository.findActiveByConversationId(input.conversationId);
+      const isNewOrder = !order || !order.status.canBeModified();
 
       if (order && order.status.canBeModified()) {
         // Add to existing order
         order.addItem(orderItem);
+        this.logger.debug(`Added item to existing order: ${order.id.toString()}`);
       } else {
         // Create new order
         order = Order.create();
@@ -100,14 +109,24 @@ export class CreateOrderUseCase implements ICreateOrderPort {
         // Link order to conversation
         conversation.setCurrentOrder(order.id);
         await this.conversationRepository.save(conversation);
+        this.logger.log(`Created new order: ${order.id.toString()}`);
       }
 
       // Save the order
       await this.orderRepository.saveWithConversation(order, input.conversationId);
 
+      this.logger.log(
+        `Order ${isNewOrder ? 'created' : 'updated'}: ${order.id.toString()}, ` +
+          `items: ${order.totalQuantity}, total: ${order.totalPrice.format()}`,
+      );
+
       return right(this.mapToOutput(order, input.conversationId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to create order: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -116,15 +135,21 @@ export class CreateOrderUseCase implements ICreateOrderPort {
    * Add an item to an existing order.
    */
   async addItem(input: AddItemToOrderInputDto): Promise<Either<ApplicationError, OrderOutputDto>> {
+    this.logger.debug(`Adding item to order: ${input.orderId}`);
+
     try {
       // Find the order
       const order = await this.findOrder(input.orderId);
       if (!order) {
+        this.logger.warn(`Order not found: ${input.orderId}`);
         return left(new OrderNotFoundError(input.orderId));
       }
 
       // Verify order can be modified
       if (!order.status.canBeModified()) {
+        this.logger.warn(
+          `Order ${input.orderId} cannot be modified (status: ${order.status.toString()})`,
+        );
         return left(
           new InvalidOrderStateError(input.orderId, order.status.toString(), 'add items'),
         );
@@ -133,6 +158,7 @@ export class CreateOrderUseCase implements ICreateOrderPort {
       // Find the drink
       const drink = await this.drinkRepository.findByName(input.drinkName);
       if (!drink) {
+        this.logger.warn(`Drink not found: ${input.drinkName}`);
         return left(new DrinkNotFoundError(input.drinkName));
       }
 
@@ -152,12 +178,20 @@ export class CreateOrderUseCase implements ICreateOrderPort {
       order.addItem(orderItem);
       await this.orderRepository.save(order);
 
+      this.logger.log(
+        `Item added to order ${input.orderId}: ${input.drinkName} x${input.quantity ?? 1}`,
+      );
+
       // Get conversation ID for output
       const conversationId = await this.findConversationIdForOrder(order.id);
 
       return right(this.mapToOutput(order, conversationId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to add item to order: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -168,24 +202,36 @@ export class CreateOrderUseCase implements ICreateOrderPort {
   async confirmOrder(
     input: ConfirmOrderInputDto,
   ): Promise<Either<ApplicationError, OrderOutputDto>> {
+    this.logger.debug(`Confirming order: ${input.orderId}`);
+
     try {
       const order = await this.findOrder(input.orderId);
       if (!order) {
+        this.logger.warn(`Order not found: ${input.orderId}`);
         return left(new OrderNotFoundError(input.orderId));
       }
 
       if (!order.canBeConfirmed()) {
+        this.logger.warn(
+          `Order ${input.orderId} cannot be confirmed (status: ${order.status.toString()})`,
+        );
         return left(new InvalidOrderStateError(input.orderId, order.status.toString(), 'confirm'));
       }
 
       order.confirm();
       await this.orderRepository.save(order);
 
+      this.logger.log(`Order confirmed: ${input.orderId}, total: ${order.totalPrice.format()}`);
+
       const conversationId = await this.findConversationIdForOrder(order.id);
 
       return right(this.mapToOutput(order, conversationId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to confirm order: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -194,17 +240,22 @@ export class CreateOrderUseCase implements ICreateOrderPort {
    * Cancel an order.
    */
   async cancelOrder(input: CancelOrderInputDto): Promise<Either<ApplicationError, OrderOutputDto>> {
+    this.logger.debug(`Cancelling order: ${input.orderId}`);
+
     try {
       const order = await this.findOrder(input.orderId);
       if (!order) {
+        this.logger.warn(`Order not found: ${input.orderId}`);
         return left(new OrderNotFoundError(input.orderId));
       }
 
       if (order.status.isCompleted()) {
+        this.logger.warn(`Order ${input.orderId} cannot be cancelled (status: completed)`);
         return left(new InvalidOrderStateError(input.orderId, order.status.toString(), 'cancel'));
       }
 
       if (order.status.isCancelled()) {
+        this.logger.warn(`Order ${input.orderId} is already cancelled`);
         return left(
           new InvalidOrderStateError(input.orderId, 'cancelled', 'cancel (already cancelled)'),
         );
@@ -223,9 +274,15 @@ export class CreateOrderUseCase implements ICreateOrderPort {
         }
       }
 
+      this.logger.log(`Order cancelled: ${input.orderId}`);
+
       return right(this.mapToOutput(order, conversationId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to cancel order: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -234,9 +291,12 @@ export class CreateOrderUseCase implements ICreateOrderPort {
    * Get an order by ID.
    */
   async getOrder(orderId: string): Promise<Either<ApplicationError, OrderOutputDto>> {
+    this.logger.debug(`Getting order: ${orderId}`);
+
     try {
       const order = await this.findOrder(orderId);
       if (!order) {
+        this.logger.debug(`Order not found: ${orderId}`);
         return left(new OrderNotFoundError(orderId));
       }
 
@@ -245,6 +305,10 @@ export class CreateOrderUseCase implements ICreateOrderPort {
       return right(this.mapToOutput(order, conversationId));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to get order: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
