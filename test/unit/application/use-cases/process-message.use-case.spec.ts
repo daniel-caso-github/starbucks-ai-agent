@@ -22,6 +22,7 @@ import {
   GenerateResponseOutputDto,
 } from '@application/dtos/conversation-ai.dto';
 import { DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
+import { CacheService } from '@infrastructure/cache';
 
 describe('ProcessMessageUseCase', () => {
   let mockConversationRepository: jest.Mocked<IConversationRepositoryPort>;
@@ -29,6 +30,7 @@ describe('ProcessMessageUseCase', () => {
   let mockDrinkRepository: jest.Mocked<IDrinkRepositoryPort>;
   let mockConversationAI: jest.Mocked<IConversationAIPort>;
   let mockDrinkSearcher: jest.Mocked<IDrinkSearcherPort>;
+  let mockCacheService: jest.Mocked<CacheService>;
   let useCase: ProcessMessageUseCase;
 
   // ============ Test Helpers ============
@@ -167,12 +169,34 @@ describe('ProcessMessageUseCase', () => {
       removeFromIndex: jest.fn(),
     };
 
+    mockCacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      getConversationHistory: jest.fn(),
+      setConversationHistory: jest.fn(),
+      invalidateConversationHistory: jest.fn(),
+      getActiveOrder: jest.fn(),
+      setActiveOrder: jest.fn(),
+      invalidateActiveOrder: jest.fn(),
+      getConversationContext: jest.fn().mockResolvedValue(null),
+      setConversationContext: jest.fn().mockResolvedValue(undefined),
+      getDrinksSearch: jest.fn(),
+      setDrinksSearch: jest.fn(),
+      getAllDrinks: jest.fn(),
+      setAllDrinks: jest.fn(),
+      getExactQuery: jest.fn(),
+      setExactQuery: jest.fn(),
+      normalizeAndHash: jest.fn(),
+    } as unknown as jest.Mocked<CacheService>;
+
     useCase = new ProcessMessageUseCase(
       mockConversationRepository,
       mockOrderRepository,
       mockDrinkRepository,
       mockConversationAI,
       mockDrinkSearcher,
+      mockCacheService,
     );
   });
 
@@ -287,10 +311,10 @@ describe('ProcessMessageUseCase', () => {
           message: 'What iced drinks do you have with caramel?',
         });
 
-        // Assert
+        // Assert (limited to 3 results for token optimization)
         expect(mockDrinkSearcher.findSimilar).toHaveBeenCalledWith(
           'What iced drinks do you have with caramel?',
-          5,
+          3,
         );
         expect(result.isRight()).toBe(true);
         if (result.isRight()) {

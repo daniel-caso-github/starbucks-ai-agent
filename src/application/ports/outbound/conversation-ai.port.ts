@@ -52,4 +52,17 @@ export interface IConversationAIPort {
    * @returns Promise resolving to true if message appears to contain an order
    */
   containsOrderIntent(message: string): Promise<boolean>;
+
+  /**
+   * Generates a streaming barista response.
+   * Yields text chunks as they arrive from the AI, then returns
+   * the final response with extracted actions.
+   *
+   * @param input - The context needed to generate a response
+   * @yields Text chunks as they arrive
+   * @returns Final response with extracted actions after streaming completes
+   */
+  generateResponseStream?(
+    input: GenerateResponseInputDto,
+  ): AsyncGenerator<string, GenerateResponseOutputDto, unknown>;
 }

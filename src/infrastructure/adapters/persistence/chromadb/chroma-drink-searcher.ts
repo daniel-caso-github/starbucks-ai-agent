@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ChromaClient, Collection, EmbeddingFunction, Metadata, Where } from 'chromadb';
 import { Drink } from '@domain/entities';
 import { CustomizationOptions, DrinkId, Money } from '@domain/value-objects';
+import { EnvConfigService } from '@infrastructure/config';
+import { CacheService } from '@infrastructure/cache';
 import { IDrinkSearcherPort, IEmbeddingGeneratorPort } from '@application/ports/outbound';
 import { DrinkSearchFiltersDto, DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
 
@@ -38,21 +39,26 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
   private embeddingFunction!: EmbeddingFunction;
 
   constructor(
-    private readonly configService: ConfigService,
+    private readonly envConfig: EnvConfigService,
     @Inject('IEmbeddingGenerator')
     private readonly embeddingGenerator: IEmbeddingGeneratorPort,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
    * Initialize ChromaDB connection when the module starts.
    */
   async onModuleInit(): Promise<void> {
-    const chromaHost = this.configService.get<string>('CHROMA_HOST', 'http://localhost:8000');
+    const chromaHost = this.envConfig.chromaHost;
 
     this.logger.log(`Connecting to ChromaDB at ${chromaHost}`);
 
+    // Parse URL to extract host, port, and ssl settings
+    const url = new URL(chromaHost);
     this.client = new ChromaClient({
-      path: chromaHost,
+      host: url.hostname,
+      port: parseInt(url.port || (url.protocol === 'https:' ? '443' : '8000'), 10),
+      ssl: url.protocol === 'https:',
     });
 
     // Create custom embedding function using our adapter
@@ -72,12 +78,26 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
 
   /**
    * Performs semantic search to find drinks similar to the query.
+   * Results are cached based on normalized query hash.
    */
   async findSimilar(
     query: string,
     limit = 5,
     filters?: DrinkSearchFiltersDto,
   ): Promise<DrinkSearchResultDto[]> {
+    // Generate cache key from normalized query
+    const queryHash = this.cacheService.normalizeAndHash(
+      `${query}:${limit}:${JSON.stringify(filters || {})}`,
+    );
+
+    // Try cache first
+    const cached = await this.cacheService.getDrinksSearch<DrinkSearchResultDto[]>(queryHash);
+    if (cached) {
+      this.logger.debug(`Cache HIT for drinks search: ${query.substring(0, 30)}...`);
+      return cached;
+    }
+
+    // Cache miss - query ChromaDB
     const whereClause = this.buildWhereClause(filters);
 
     const results = await this.collection.query({
@@ -86,7 +106,13 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
       ...(whereClause && { where: whereClause }),
     });
 
-    return this.mapQueryResults(results);
+    const mappedResults = this.mapQueryResults(results);
+
+    // Cache the results
+    await this.cacheService.setDrinksSearch(queryHash, mappedResults);
+    this.logger.debug(`Cache SET for drinks search: ${query.substring(0, 30)}...`);
+
+    return mappedResults;
   }
 
   /**
@@ -124,17 +150,32 @@ export class ChromaDrinkSearcher implements IDrinkSearcherPort, OnModuleInit {
 
   /**
    * Retrieves all drinks from the collection.
+   * Cached for 24 hours since menu rarely changes.
    */
   async findAll(): Promise<Drink[]> {
+    // Try cache first
+    const cached = await this.cacheService.getAllDrinks<Drink[]>();
+    if (cached) {
+      this.logger.debug('Cache HIT for all drinks');
+      return cached;
+    }
+
+    // Cache miss - query ChromaDB
     const results = await this.collection.get({});
 
-    return results.ids
+    const drinks = results.ids
       .map((id, index) => {
         const metadata = results.metadatas[index];
         if (!metadata) return null;
         return this.metadataToDrink(id, metadata);
       })
       .filter((drink): drink is Drink => drink !== null);
+
+    // Cache the results
+    await this.cacheService.setAllDrinks(drinks);
+    this.logger.debug(`Cache SET for all drinks (${drinks.length} items)`);
+
+    return drinks;
   }
 
   /**

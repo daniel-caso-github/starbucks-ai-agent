@@ -6,8 +6,31 @@ import {
   OrderItemDocument,
   CustomizationsDocument,
 } from '@infrastructure/adapters/persistence/mongodb/schemas';
+import { CacheService } from '@infrastructure/cache';
 import { Order } from '@domain/entities';
 import { DrinkId, DrinkSize, Money, OrderId, OrderItem } from '@domain/value-objects';
+
+// Mock CacheService
+const mockCacheService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  getConversationHistory: jest.fn().mockResolvedValue(null),
+  setConversationHistory: jest.fn().mockResolvedValue(undefined),
+  invalidateConversationHistory: jest.fn().mockResolvedValue(undefined),
+  getActiveOrder: jest.fn().mockResolvedValue(null),
+  setActiveOrder: jest.fn().mockResolvedValue(undefined),
+  invalidateActiveOrder: jest.fn().mockResolvedValue(undefined),
+  getConversationContext: jest.fn().mockResolvedValue(null),
+  setConversationContext: jest.fn().mockResolvedValue(undefined),
+  getDrinksSearch: jest.fn().mockResolvedValue(null),
+  setDrinksSearch: jest.fn().mockResolvedValue(undefined),
+  getAllDrinks: jest.fn().mockResolvedValue(null),
+  setAllDrinks: jest.fn().mockResolvedValue(undefined),
+  getExactQuery: jest.fn().mockResolvedValue(null),
+  setExactQuery: jest.fn().mockResolvedValue(undefined),
+  normalizeAndHash: jest.fn().mockReturnValue('mock-hash'),
+};
 
 // Type definitions for mock model
 type MockOrderDocument = {
@@ -102,6 +125,10 @@ describe('MongoOrderRepository', () => {
         {
           provide: getModelToken(OrderDocument.name),
           useValue: mockModel,
+        },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
         },
       ],
     }).compile();

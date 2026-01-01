@@ -7,8 +7,31 @@ import {
   ConversationSchema,
   MongoConversationRepository,
 } from '@infrastructure/adapters';
+import { CacheService } from '@infrastructure/cache';
 import { Conversation } from '@domain/entities';
 import { ConversationId, OrderId } from '@domain/value-objects';
+
+// Mock CacheService for integration tests
+const mockCacheService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  getConversationHistory: jest.fn().mockResolvedValue(null),
+  setConversationHistory: jest.fn().mockResolvedValue(undefined),
+  invalidateConversationHistory: jest.fn().mockResolvedValue(undefined),
+  getActiveOrder: jest.fn().mockResolvedValue(null),
+  setActiveOrder: jest.fn().mockResolvedValue(undefined),
+  invalidateActiveOrder: jest.fn().mockResolvedValue(undefined),
+  getConversationContext: jest.fn().mockResolvedValue(null),
+  setConversationContext: jest.fn().mockResolvedValue(undefined),
+  getDrinksSearch: jest.fn().mockResolvedValue(null),
+  setDrinksSearch: jest.fn().mockResolvedValue(undefined),
+  getAllDrinks: jest.fn().mockResolvedValue(null),
+  setAllDrinks: jest.fn().mockResolvedValue(undefined),
+  getExactQuery: jest.fn().mockResolvedValue(null),
+  setExactQuery: jest.fn().mockResolvedValue(undefined),
+  normalizeAndHash: jest.fn().mockReturnValue('mock-hash'),
+};
 
 // Increase timeout for integration tests
 jest.setTimeout(60000);
@@ -30,7 +53,10 @@ describe('MongoConversationRepository Integration', () => {
           { name: ConversationDocument.name, schema: ConversationSchema },
         ]),
       ],
-      providers: [MongoConversationRepository],
+      providers: [
+        MongoConversationRepository,
+        { provide: CacheService, useValue: mockCacheService },
+      ],
     }).compile();
 
     repository = module.get<MongoConversationRepository>(MongoConversationRepository);

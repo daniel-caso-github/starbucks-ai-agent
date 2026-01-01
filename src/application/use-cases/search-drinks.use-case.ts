@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Either, left, right } from '../common/either';
 import { DrinkResultDto, SearchDrinksInputDto, SearchDrinksOutputDto } from '@application/dtos';
 import { ApplicationError, UnexpectedError, ValidationError } from '@application/errors';
@@ -27,6 +27,8 @@ import { DrinkSearchResultDto } from '@application/dtos/drink-searcher.dto';
  */
 @Injectable()
 export class SearchDrinksUseCase implements ISearchDrinksPort {
+  private readonly logger = new Logger(SearchDrinksUseCase.name);
+
   constructor(
     @Inject('IDrinkSearcher')
     private readonly drinkSearcher: IDrinkSearcherPort,
@@ -57,20 +59,29 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
   async execute(
     input: SearchDrinksInputDto,
   ): Promise<Either<ApplicationError, SearchDrinksOutputDto>> {
+    this.logger.debug(`Searching drinks with query: "${input.query}"`);
+
     try {
       // Step 1: Validate input
       const validationResult = this.validateInput(input);
       if (validationResult.isLeft()) {
+        this.logger.warn(`Validation failed: ${validationResult.value.message}`);
         return validationResult;
       }
 
       const limit = input.limit ?? 5;
 
       // Step 2: Perform semantic search using ChromaDB
+      const startTime = Date.now();
       const searchResults = await this.drinkSearcher.findSimilar(input.query.trim(), limit);
+      const duration = Date.now() - startTime;
 
       // Step 3: Transform results to output DTOs
       const results = searchResults.map((result) => this.mapToResultDto(result));
+
+      this.logger.log(
+        `Search completed: "${input.query}" -> ${results.length} results in ${duration}ms`,
+      );
 
       // Step 4: Return successful response
       return right({
@@ -80,6 +91,10 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Search failed: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -93,6 +108,8 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
    * @returns Either an error or all drinks in the catalog
    */
   async getAllDrinks(): Promise<Either<ApplicationError, DrinkResultDto[]>> {
+    this.logger.debug('Getting all drinks');
+
     try {
       const drinks = await this.drinkRepository.findAll();
 
@@ -111,9 +128,15 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
         },
       }));
 
+      this.logger.debug(`Retrieved ${results.length} drinks from catalog`);
+
       return right(results);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to get all drinks: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }
@@ -125,10 +148,13 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
    * @returns Either an error or the drink details
    */
   async getDrinkById(drinkId: DrinkId): Promise<Either<ApplicationError, DrinkResultDto | null>> {
+    this.logger.debug(`Getting drink by ID: ${drinkId.toString()}`);
+
     try {
       const drink = await this.drinkSearcher.findById(drinkId);
 
       if (!drink) {
+        this.logger.debug(`Drink not found: ${drinkId.toString()}`);
         return right(null);
       }
 
@@ -150,6 +176,10 @@ export class SearchDrinksUseCase implements ISearchDrinksPort {
       return right(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to get drink by ID: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return left(new UnexpectedError(message));
     }
   }

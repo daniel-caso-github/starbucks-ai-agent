@@ -1,6 +1,6 @@
 import { Command, CommandRunner, Option } from 'nest-commander';
-import { ConfigService } from '@nestjs/config';
 import { ChromaClient } from 'chromadb';
+import { EnvConfigService } from '@infrastructure/config';
 
 interface ChromaCommandOptions {
   collection?: string;
@@ -14,14 +14,20 @@ interface ChromaCommandOptions {
 export class ChromaCommand extends CommandRunner {
   private client!: ChromaClient;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly envConfig: EnvConfigService) {
     super();
   }
 
   async run(_passedParams: string[], options: ChromaCommandOptions): Promise<void> {
-    const chromaHost = this.configService.get<string>('CHROMA_HOST', 'http://localhost:8000');
+    const chromaHost = this.envConfig.chromaHost;
 
-    this.client = new ChromaClient({ path: chromaHost });
+    // Parse URL to extract host, port, and ssl settings
+    const url = new URL(chromaHost);
+    this.client = new ChromaClient({
+      host: url.hostname,
+      port: parseInt(url.port || (url.protocol === 'https:' ? '443' : '8000'), 10),
+      ssl: url.protocol === 'https:',
+    });
 
     if (options.collection) {
       await this.showCollection(options.collection, options.limit ?? 10);
@@ -85,7 +91,7 @@ export class ChromaCommand extends CommandRunner {
         console.log(`\n   📄 ID: ${id}`);
 
         if (metadata) {
-          const displayName = metadata.displayName || metadata.name || 'N/A';
+          const displayName = String(metadata.displayName || metadata.name || 'N/A');
           const price = metadata.basePriceCents
             ? `$${(Number(metadata.basePriceCents) / 100).toFixed(2)}`
             : 'N/A';

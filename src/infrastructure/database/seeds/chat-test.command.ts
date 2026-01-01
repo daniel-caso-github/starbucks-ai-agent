@@ -54,7 +54,7 @@ export class ChatTestCommand extends CommandRunner {
       });
 
       const prompt = (): void => {
-        rl.question('\n👤 You: ', async (input) => {
+        rl.question('\n👤 You: ', (input) => {
           const trimmedInput = input.trim();
 
           if (!trimmedInput) {
@@ -76,8 +76,7 @@ export class ChatTestCommand extends CommandRunner {
             this.conversationId = undefined;
             this.lastResponse = null;
             console.log('\n🔄 Conversación limpiada. ¡Empezando de nuevo!\n');
-            await this.sendMessage('Hola!');
-            prompt();
+            void this.sendMessage('Hola!').then(() => prompt());
             return;
           }
 
@@ -94,8 +93,7 @@ export class ChatTestCommand extends CommandRunner {
           }
 
           // Process regular message
-          await this.sendMessage(trimmedInput);
-          prompt();
+          void this.sendMessage(trimmedInput).then(() => prompt());
         });
       };
 
@@ -108,14 +106,16 @@ export class ChatTestCommand extends CommandRunner {
    */
   private async sendMessage(userMessage: string): Promise<void> {
     try {
-      this.logger.debug(`Sending message: "${userMessage}" with conversationId: ${this.conversationId}`);
+      this.logger.debug(
+        `Sending message: "${userMessage}" with conversationId: ${this.conversationId ?? 'none'}`,
+      );
 
       const result = await this.processMessage.execute({
         message: userMessage,
         conversationId: this.conversationId,
       });
 
-      this.logger.debug(`Result isLeft: ${result.isLeft()}`);
+      this.logger.debug(`Result isLeft: ${String(result.isLeft())}`);
 
       if (result.isLeft()) {
         console.error('\n❌ Error:', result.value.message);

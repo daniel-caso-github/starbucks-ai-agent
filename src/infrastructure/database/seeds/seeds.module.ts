@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { MongoDBModule, ChromaDBModule, ClaudeModule } from '@infrastructure/adapters';
+import { MongoDBModule, ChromaDBModule, GeminiModule } from '@infrastructure/adapters';
+import { CacheService } from '@infrastructure/cache';
 import {
   IConversationRepositoryPort,
   IOrderRepositoryPort,
@@ -22,7 +23,7 @@ import { ChatTestCommand } from './chat-test.command';
  * - Interactive chat with the barista AI (full end-to-end)
  */
 @Module({
-  imports: [MongoDBModule, ChromaDBModule, ClaudeModule],
+  imports: [MongoDBModule, ChromaDBModule, GeminiModule],
   providers: [
     // Seeder service
     {
@@ -44,6 +45,7 @@ import { ChatTestCommand } from './chat-test.command';
         drinkRepository: IDrinkRepositoryPort,
         conversationAI: IConversationAIPort,
         drinkSearcher: IDrinkSearcherPort,
+        cacheService: CacheService,
       ): ProcessMessageUseCase => {
         return new ProcessMessageUseCase(
           conversationRepository,
@@ -51,6 +53,7 @@ import { ChatTestCommand } from './chat-test.command';
           drinkRepository,
           conversationAI,
           drinkSearcher,
+          cacheService,
         );
       },
       inject: [
@@ -59,6 +62,7 @@ import { ChatTestCommand } from './chat-test.command';
         'IDrinkRepository',
         'IConversationAI',
         'IDrinkSearcher',
+        CacheService,
       ],
     },
     // CLI Commands

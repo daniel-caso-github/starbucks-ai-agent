@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { EnvConfigService } from '@infrastructure/config';
 import { IEmbeddingGeneratorPort } from '@application/ports/outbound';
 import { EmbeddingResultDto, EmbeddingType } from '@application/dtos/embedding-generator.dto';
 
@@ -27,10 +27,10 @@ export class OpenAIEmbeddingAdapter implements IEmbeddingGeneratorPort, OnModule
   private readonly maxTokens = 8191;
   private initialized = false;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly envConfig: EnvConfigService) {}
 
   onModuleInit(): void {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const apiKey = this.envConfig.openaiApiKey;
 
     if (!apiKey || apiKey === 'your_openai_api_key_here') {
       this.logger.warn('OPENAI_API_KEY not configured - semantic search will not work correctly');

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule, EnvConfigService } from '@infrastructure/config';
+import { CacheModule } from '@infrastructure/cache';
 import { SeedsModule } from '@infrastructure/database/seeds/seeds.module';
 import { ChromaCliModule } from '@infrastructure/database/chroma/chroma-cli.module';
 
@@ -12,20 +13,17 @@ import { ChromaCliModule } from '@infrastructure/database/chroma/chroma-cli.modu
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
+    ConfigModule,
+    CacheModule,
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGO_URI'),
+      useFactory: (envConfig: EnvConfigService) => ({
+        uri: envConfig.mongoUri,
         // Keep connection alive for CLI commands that wait for user input
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 360000,
         maxIdleTimeMS: 360000,
       }),
-      inject: [ConfigService],
+      inject: [EnvConfigService],
     }),
     SeedsModule,
     ChromaCliModule,

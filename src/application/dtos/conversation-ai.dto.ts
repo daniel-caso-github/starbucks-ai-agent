@@ -29,6 +29,8 @@ export interface SuggestedActionType {
     | 'cancel_order'
     | 'search_drinks'
     | 'get_summary'
+    | 'get_full_menu'
+    | 'get_drink_details'
     | 'ask_clarification';
 
   /** Additional data for the action */
