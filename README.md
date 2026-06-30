@@ -19,16 +19,14 @@ Conversational AI agent that simulates a Starbucks barista. Users can explore th
 
 ## Demo
 
-> **Coming soon** — drop a screen recording here once available.
->
-> ![Chat demo](docs/demo.gif)
+![Chat demo](starbuck-agent-ai.gif)
 
 ---
 
 ## Features
 
 ### Conversational AI
-- **Gemini 2.0 Flash** with function calling — structured actions (`search_drinks`, `create_order`, `modify_order`, `confirm_order`, `cancel_order`, `get_full_menu`, `get_drink_details`)
+- **Gemini 2.5 Flash** with function calling — structured actions (`search_drinks`, `create_order`, `modify_order`, `confirm_order`, `cancel_order`, `get_full_menu`, `get_drink_details`)
 - **SSE streaming** — bot text appears word-by-word as it is generated
 - Responds in Spanish with natural, friendly barista personality
 
@@ -105,19 +103,19 @@ PENDING ──confirm──► CONFIRMED ──pay──► COMPLETED
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|-----------|
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Zustand |
-| **Backend** | NestJS 10, TypeScript 5 |
-| **AI — Conversation** | Google Gemini 2.0 Flash (function calling + streaming) |
-| **AI — Embeddings** | OpenAI `text-embedding-3-small` |
-| **Database** | MongoDB 7 |
-| **Vector DB** | ChromaDB |
-| **Cache** | Redis |
-| **Testing** | Jest (unit + integration), Playwright (E2E) |
-| **Containers** | Docker, Docker Compose |
-| **Observability** | OpenTelemetry, Prometheus, Grafana, Jaeger |
-| **Package Manager** | pnpm workspaces |
+| Category | Technology                                             |
+|----------|--------------------------------------------------------|
+| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Zustand      |
+| **Backend** | NestJS 10, TypeScript 5                                |
+| **AI — Conversation** | Google Gemini 2.5 Flash (function calling + streaming) |
+| **AI — Embeddings** | OpenAI `text-embedding-3-small`                        |
+| **Database** | MongoDB 7                                              |
+| **Vector DB** | ChromaDB                                               |
+| **Cache** | Redis                                                  |
+| **Testing** | Jest (unit + integration), Playwright (E2E)            |
+| **Containers** | Docker, Docker Compose                                 |
+| **Observability** | OpenTelemetry, Prometheus, Grafana, Jaeger             |
+| **Package Manager** | pnpm workspaces                                        |
 
 ---
 
