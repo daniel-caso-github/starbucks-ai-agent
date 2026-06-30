@@ -59,11 +59,14 @@ export class ProcessMessageStreamUseCase {
       if (input.conversationId) {
         conversationId = ConversationId.fromString(input.conversationId);
         const existing = await this.conversationRepository.findById(conversationId);
-        if (!existing) {
-          yield { type: 'error', data: 'Conversation not found' };
-          return;
+        if (existing) {
+          conversation = existing;
+        } else {
+          this.logger.warn(
+            `Conversation ${conversationId.toString()} not found in storage, recreating with same id`,
+          );
+          conversation = Conversation.create(conversationId);
         }
-        conversation = existing;
       } else {
         conversationId = ConversationId.generate();
         conversation = Conversation.create(conversationId);
@@ -72,9 +75,16 @@ export class ProcessMessageStreamUseCase {
       // Add user message
       conversation.addUserMessage(input.message);
 
-      // Get relevant drinks for context
+      // Get relevant drinks for context (enrich imageUrl from MongoDB if ChromaDB has stale data)
       const searchResults = await this.drinkSearcher.findSimilar(input.message, 5);
-      const relevantDrinks = searchResults.map((r) => r.drink);
+      const relevantDrinks = await Promise.all(
+        searchResults.map(async (r) => {
+          if (!r.drink.imageUrl) {
+            return (await this.drinkRepository.findById(r.drink.id)) ?? r.drink;
+          }
+          return r.drink;
+        }),
+      );
 
       // Get current order if exists
       const activeOrder = await this.orderRepository.findActiveByConversationId(
@@ -303,6 +313,7 @@ export class ProcessMessageStreamUseCase {
         size: item.size ?? undefined,
         customizations: item.customizations,
         isHot: drink.isHot,
+        imageUrl: drink.imageUrl,
       });
       order.addItem(orderItem);
       itemsAdded++;

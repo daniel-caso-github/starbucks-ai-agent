@@ -26,6 +26,7 @@ export class OrderItem {
     public readonly unitPrice: Money,
     public readonly customizations: DrinkCustomizations,
     public readonly isHot: boolean,
+    public readonly imageUrl: string,
   ) {
     this.validate();
   }
@@ -38,6 +39,7 @@ export class OrderItem {
     unitPrice: Money;
     customizations?: DrinkCustomizations;
     isHot?: boolean;
+    imageUrl?: string;
   }): OrderItem {
     return new OrderItem(
       props.drinkId,
@@ -47,6 +49,7 @@ export class OrderItem {
       props.unitPrice,
       props.customizations ?? {},
       props.isHot ?? true,
+      props.imageUrl ?? '',
     );
   }
 
@@ -77,6 +80,7 @@ export class OrderItem {
       this.unitPrice,
       this.customizations,
       this.isHot,
+      this.imageUrl,
     );
   }
 
@@ -90,6 +94,7 @@ export class OrderItem {
       this.unitPrice,
       this.customizations,
       this.isHot,
+      this.imageUrl,
     );
   }
 
@@ -98,7 +103,7 @@ export class OrderItem {
     return new OrderItem(this.drinkId, this.drinkName, this.size, this.quantity, this.unitPrice, {
       ...this.customizations,
       ...customizations,
-    }, this.isHot);
+    }, this.isHot, this.imageUrl);
   }
 
   // Check if this item has any customizations
