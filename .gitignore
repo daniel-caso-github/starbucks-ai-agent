@@ -28,8 +28,16 @@ npm-debug.log*
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+packages/web/playwright/.cache/
 
 # Docker volumes (local data)
 mongodb_data/
 chroma_data/
 .claude/
+
+# Monorepo packages
+packages/*/dist/
+packages/*/coverage/
+packages/*/node_modules/

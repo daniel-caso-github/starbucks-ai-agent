@@ -1,4 +1,4 @@
-quiero ver las bebidas disponibles
-puedes darme detalles del Americano quiero saber que tiene esa bebeida
-quiero un latte grande y un cappuccino mediano
-dame dos americanos y un chocolate caliente
+mensjae 1: quiero ver las bebidas disponibles
+mensjae 2: puedes darme detalles del Americano quiero saber que tiene esa bebida
+mensjae 3: quiero un latte grande y un cappuccino mediano
+mensjae 4: dame dos americanos y un chocolate caliente

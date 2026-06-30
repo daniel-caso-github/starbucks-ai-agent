@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: packages/api/Dockerfile
       target: production
     container_name: starbucks-app-prod
     ports:

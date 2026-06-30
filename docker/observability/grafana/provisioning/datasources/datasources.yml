@@ -17,3 +17,10 @@ datasources:
     editable: false
     jsonData:
       maxLines: 1000
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    uid: jaeger
+    url: http://jaeger:16686
+    editable: false

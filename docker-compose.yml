@@ -1,115 +1,103 @@
+# Starbucks AI Barista - Docker Compose
+# Usage: docker-compose up -d
+
 services:
-  # ===========================================
-  # NestJS Application
-  # ===========================================
+  # ============== APPLICATION ==============
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: packages/api/Dockerfile
       target: development
     container_name: starbucks-app
-    ports:
-      - '3000:3000'
+    working_dir: /app/packages/api
+    ports: ['3000:3000']
     volumes:
       - .:/app
       - /app/node_modules
-    env_file:
-      - .env
-    depends_on:
-      - mongodb
-      - chromadb
-      - redis
-    labels:
-      - "logging=promtail"
+      - /app/packages/api/node_modules
+    env_file: [.env]
+    environment:
+      OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      ENABLE_TEST_ROUTES: 'true'
+    depends_on: [mongodb, chromadb, redis, jaeger]
+    labels: ['logging=promtail']
     restart: unless-stopped
 
-  # ===========================================
-  # Redis - Caching Layer
-  # ===========================================
-  redis:
-    image: redis:7-alpine
-    container_name: starbucks-redis
-    ports:
-      - '6379:6379'
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+      target: development
+    container_name: starbucks-web
+    working_dir: /app/packages/web
+    ports: ['5173:5173']
+    environment:
+      VITE_API_URL: http://app:3000
     volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - .:/app
+      - /app/node_modules
+      - /app/packages/web/node_modules
+    depends_on: [app]
     restart: unless-stopped
 
-  # ===========================================
-  # MongoDB - Orders and conversation history
-  # ===========================================
+  # ============== DATA STORES ==============
   mongodb:
     image: mongo:7
     container_name: starbucks-mongodb
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: starbucks_agent
+    ports: ['27017:27017']
+    volumes: [mongodb_data:/data/db]
+    environment: { MONGO_INITDB_DATABASE: starbucks_agent }
     restart: unless-stopped
 
-  # ===========================================
-  # ChromaDB - Vector database for RAG
-  # ===========================================
   chromadb:
     image: chromadb/chroma:latest
     container_name: starbucks-chromadb
-    ports:
-      - '8000:8000'
-    volumes:
-      - chroma_data:/chroma/chroma
+    ports: ['8000:8000']
+    volumes: [chroma_data:/chroma/chroma]
     environment:
       ANONYMIZED_TELEMETRY: 'false'
       CHROMA_SERVER_HOST: 0.0.0.0
       CHROMA_SERVER_HTTP_PORT: 8000
     restart: unless-stopped
 
-  # ===========================================
-  # Mongo Express - MongoDB Web UI
-  # ===========================================
-  mongo-express:
-    image: mongo-express:latest
-    container_name: starbucks-mongo-express
-    ports:
-      - '8081:8081'
-    environment:
-      ME_CONFIG_MONGODB_SERVER: mongodb
-      ME_CONFIG_MONGODB_PORT: 27017
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: admin
-    depends_on:
-      - mongodb
+  redis:
+    image: redis:7-alpine
+    container_name: starbucks-redis
+    ports: ['6379:6379']
+    volumes: [redis_data:/data]
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
 
-  # ===========================================
-  # Prometheus - Metrics Collection
-  # ===========================================
+  # ============== OBSERVABILITY ==============
+  # Jaeger - Distributed Tracing (receives OTLP traces)
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: starbucks-jaeger
+    ports:
+      - '16686:16686'  # Jaeger UI
+      - '4318:4318'    # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'
+    restart: unless-stopped
+
+  # Prometheus - Metrics
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: starbucks-prometheus
-    ports:
-      - '9090:9090'
+    ports: ['9090:9090']
     volumes:
       - ./docker/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    depends_on:
-      - app
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.path=/prometheus', '--web.enable-lifecycle']
+    depends_on: [app]
     restart: unless-stopped
 
-  # ===========================================
-  # Grafana - Visualization
-  # ===========================================
+  # Grafana - Dashboards
   grafana:
     image: grafana/grafana:10.2.0
     container_name: starbucks-grafana
-    ports:
-      - '3001:3000'
+    ports: ['3001:3000']
     volumes:
       - ./docker/observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
@@ -117,28 +105,21 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: 'false'
-    depends_on:
-      - prometheus
-      - loki
+    depends_on: [prometheus, loki, jaeger]
     restart: unless-stopped
 
-  # ===========================================
   # Loki - Log Aggregation
-  # ===========================================
   loki:
     image: grafana/loki:2.9.2
     container_name: starbucks-loki
-    ports:
-      - '3100:3100'
+    ports: ['3100:3100']
     volumes:
       - ./docker/observability/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
 
-  # ===========================================
   # Promtail - Log Shipper
-  # ===========================================
   promtail:
     image: grafana/promtail:2.9.2
     container_name: starbucks-promtail
@@ -147,14 +128,26 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
-    depends_on:
-      - loki
+    depends_on: [loki]
+    restart: unless-stopped
+
+  # ============== ADMIN TOOLS ==============
+  mongo-express:
+    image: mongo-express:latest
+    container_name: starbucks-mongo-express
+    ports: ['8081:8081']
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on: [mongodb]
     restart: unless-stopped
 
 volumes:
-  redis_data:
   mongodb_data:
   chroma_data:
+  redis_data:
   prometheus_data:
   grafana_data:
   loki_data:
