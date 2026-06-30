@@ -29,3 +29,8 @@ docker-compose*.yml
 # Documentation
 README.md
 docs/
+
+# Monorepo build artifacts
+packages/*/dist/
+packages/*/coverage/
+packages/*/node_modules/

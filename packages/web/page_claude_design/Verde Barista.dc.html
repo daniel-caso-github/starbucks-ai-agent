@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#cdd9d3;border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes vdBlink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+  @keyframes vdShim{0%{background-position:-260px 0}100%{background-position:260px 0}}
+  @keyframes vdPulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes vdUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#E7EEEA;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:18px 16px 30px;box-sizing:border-box">
+
+  <div style="width:100%;max-width:1280px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="display:flex;align-items:baseline;gap:9px">
+      <span style="font-family:'Instrument Serif',serif;font-size:24px;color:#1E3932;line-height:1">Verde</span>
+      <span style="font:500 11px 'IBM Plex Mono',monospace;color:#7B8A83;letter-spacing:.04em">BARISTA · PROTOTIPO</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:inline-flex;gap:3px;background:#fff;border:1px solid #DCE6E1;border-radius:10px;padding:3px">
+        <button onClick="{{ setDesktop }}" style="{{ devDesktopStyle }}">Desktop</button>
+        <button onClick="{{ setMobile }}" style="{{ devMobileStyle }}">Mobile</button>
+      </div>
+      <div style="display:inline-flex;gap:3px;background:#fff;border:1px solid #DCE6E1;border-radius:10px;padding:3px">
+        <button onClick="{{ setSidebar }}" style="{{ laySidebarStyle }}">Sidebar</button>
+        <button onClick="{{ setDrawer }}" style="{{ layDrawerStyle }}">Drawer</button>
+      </div>
+      <button onClick="{{ simulateError }}" style="padding:8px 12px;border:1px solid #E6CFC9;border-radius:9px;background:#fff;color:#B5482F;font:600 12px Inter;cursor:pointer">Simular error</button>
+      <button onClick="{{ resetDemo }}" style="padding:8px 12px;border:1px solid #DCE6E1;border-radius:9px;background:#fff;color:#5B6B64;font:600 12px Inter;cursor:pointer">Reiniciar</button>
+    </div>
+  </div>
+
+  <div style="{{ appShellStyle }}">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-bottom:1px solid #EAF0ED;background:#fff;flex:none;z-index:5">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="width:38px;height:38px;border-radius:50%;background:#006241;display:flex;align-items:center;justify-content:center;position:relative">
+          <div style="position:relative;width:17px;height:14px">
+            <div style="position:absolute;left:0;top:1px;width:13px;height:11px;border:2px solid #fff;border-radius:1px 1px 4px 4px"></div>
+            <div style="position:absolute;right:0;top:3px;width:6px;height:6px;border:2px solid #fff;border-radius:50%"></div>
+            <div style="position:absolute;left:-1px;bottom:-3px;width:15px;height:2px;background:#fff;border-radius:2px"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'Instrument Serif',serif;font-size:19px;color:#1E3932;line-height:1.05">Verde</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:1px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#3BA776;animation:vdPulse 1.8s infinite"></span>
+            <span style="font-size:11.5px;color:#7B8A83">Barista en línea</span>
+          </div>
+        </div>
+      </div>
+      <sc-if value="{{ showHeaderCart }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toggleOrder }}" style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;border:1px solid #CFE0D7;background:#F1F8F5;color:#006241;font:600 13px Inter;cursor:pointer">
+          <span>Tu orden</span>
+          <span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#006241;color:#fff;font:700 11px Inter;display:inline-flex;align-items:center;justify-content:center">{{ order.count }}</span>
+        </button>
+      </sc-if>
+    </div>
+
+    <div style="{{ appBodyStyle }}">
+
+      <div style="{{ chatColStyle }}">
+        <div ref="{{ messagesRef }}" style="flex:1;overflow-y:auto;padding:22px 24px;min-height:0">
+          <div style="{{ chatInnerStyle }}">
+            <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="2">
+              <div style="margin-bottom:16px">
+
+                <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;align-items:flex-end">
+                    <div style="background:#006241;color:#fff;border-radius:16px 16px 4px 16px;padding:11px 14px;font-size:14px;line-height:1.5;max-width:80%">{{ m.text }}</div>
+                    <div style="font-size:11px;color:#9AA8A1;margin-top:5px">{{ m.time }}</div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:10px;align-items:flex-start">
+                    <div style="flex:none;width:32px;height:32px;border-radius:50%;background:#E4F2EB;display:flex;align-items:center;justify-content:center;margin-top:2px">
+                      <div style="position:relative;width:15px;height:12px">
+                        <div style="position:absolute;left:0;top:1px;width:11px;height:9px;border:1.8px solid #006241;border-radius:1px 1px 3px 3px"></div>
+                        <div style="position:absolute;right:0;top:2px;width:5px;height:5px;border:1.8px solid #006241;border-radius:50%"></div>
+                        <div style="position:absolute;left:-1px;bottom:-2px;width:13px;height:1.8px;background:#006241;border-radius:2px"></div>
+                      </div>
+                    </div>
+                    <div style="flex:1;min-width:0">
+
+                      <sc-if value="{{ m.hasText }}" hint-placeholder-val="{{ true }}">
+                        <div style="{{ m.bubbleStyle }}">{{ m.text }}</div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.skeleton }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;gap:12px;margin-top:10px;overflow:hidden">
+                          <div style="flex:none;width:240px;border:1px solid #EBF0ED;border-radius:16px;padding:12px;background:#fff">
+                            <div style="height:110px;border-radius:12px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                            <div style="height:13px;width:60%;margin-top:12px;border-radius:5px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                            <div style="height:11px;width:85%;margin-top:8px;border-radius:5px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                          </div>
+                          <div style="flex:none;width:240px;border:1px solid #EBF0ED;border-radius:16px;padding:12px;background:#fff">
+                            <div style="height:110px;border-radius:12px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                            <div style="height:13px;width:55%;margin-top:12px;border-radius:5px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                            <div style="height:11px;width:80%;margin-top:8px;border-radius:5px;background:linear-gradient(90deg,#EEF3F1 25%,#E1E9E5 50%,#EEF3F1 75%);background-size:400px 100%;animation:vdShim 1.2s infinite"></div>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.isError }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-top:8px;display:flex;align-items:center;gap:10px;background:#FBECE8;border:1px solid #F0D2CB;border-radius:12px;padding:11px 13px;max-width:420px">
+                          <span style="flex:none;width:22px;height:22px;border-radius:50%;background:#C0432F;color:#fff;font:700 13px Inter;display:flex;align-items:center;justify-content:center">!</span>
+                          <span style="font-size:13px;color:#8A3A29;line-height:1.4">No pude conectar con la cocina. Revisa tu conexión e inténtalo de nuevo.</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.hasCards }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;gap:12px;margin-top:11px;overflow-x:auto;padding:2px 2px 8px">
+                          <sc-for list="{{ m.cards }}" as="c" hint-placeholder-count="2">
+                            <div style="flex:none;width:262px;border:1px solid #E9EEEB;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 2px 10px rgba(20,40,30,.05)">
+                              <div style="{{ c.phStyle }};height:118px;position:relative">
+                                <span style="{{ c.badgeStyle }}">{{ c.badgeLabel }}</span>
+                                <sc-if value="{{ c.hasScore }}" hint-placeholder-val="{{ false }}">
+                                  <span style="position:absolute;top:9px;right:9px;background:rgba(255,255,255,.92);color:#1E3932;font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;border-radius:999px">{{ c.scoreLabel }}</span>
+                                </sc-if>
+                                <span style="position:absolute;left:10px;bottom:8px;font:400 10px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.78)">[ foto bebida ]</span>
+                              </div>
+                              <div style="padding:12px 13px 14px">
+                                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                                  <span style="font:600 14.5px Inter;color:#1E2A26">{{ c.name }}</span>
+                                  <span style="font:700 14px Inter;color:#006241;white-space:nowrap">{{ c.priceStr }}</span>
+                                </div>
+                                <div style="font-size:12px;line-height:1.45;color:#73827B;margin-top:5px;min-height:34px">{{ c.desc }}</div>
+
+                                <div style="font:600 10.5px 'IBM Plex Mono',monospace;color:#9AA8A1;letter-spacing:.05em;margin:11px 0 6px">TAMAÑO</div>
+                                <div style="display:flex;gap:6px">
+                                  <sc-for list="{{ c.sizes }}" as="s" hint-placeholder-count="3">
+                                    <button onClick="{{ s.onClick }}" style="{{ s.style }}"><span style="font:600 12px Inter">{{ s.label }}</span><span style="font:400 9.5px 'IBM Plex Mono',monospace;opacity:.75">{{ s.oz }}</span></button>
+                                  </sc-for>
+                                </div>
+
+                                <div style="font:600 10.5px 'IBM Plex Mono',monospace;color:#9AA8A1;letter-spacing:.05em;margin:11px 0 6px">LECHE</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                                  <sc-for list="{{ c.milks }}" as="mk" hint-placeholder-count="3">
+                                    <button onClick="{{ mk.onClick }}" style="{{ mk.style }}">{{ mk.label }}</button>
+                                  </sc-for>
+                                </div>
+
+                                <div style="font:600 10.5px 'IBM Plex Mono',monospace;color:#9AA8A1;letter-spacing:.05em;margin:11px 0 6px">JARABE</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                                  <sc-for list="{{ c.syrups }}" as="sy" hint-placeholder-count="3">
+                                    <button onClick="{{ sy.onClick }}" style="{{ sy.style }}">{{ sy.label }}</button>
+                                  </sc-for>
+                                </div>
+
+                                <button onClick="{{ c.onAdd }}" style="margin-top:13px;width:100%;padding:10px;border:none;border-radius:11px;background:#006241;color:#fff;font:600 13px Inter;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">Agregar a la orden</button>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ m.showReplies }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:11px">
+                          <sc-for list="{{ m.replies }}" as="r" hint-placeholder-count="3">
+                            <button onClick="{{ r.onClick }}" style="padding:8px 14px;border:1px solid #CDE0D6;background:#fff;color:#006241;border-radius:999px;font:600 12.5px Inter;cursor:pointer">{{ r.label }}</button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+
+                      <div style="font-size:11px;color:#9AA8A1;margin-top:6px">{{ m.time }}</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:16px">
+                <div style="flex:none;width:32px;height:32px;border-radius:50%;background:#E4F2EB;display:flex;align-items:center;justify-content:center;margin-top:2px">
+                  <div style="position:relative;width:15px;height:12px">
+                    <div style="position:absolute;left:0;top:1px;width:11px;height:9px;border:1.8px solid #006241;border-radius:1px 1px 3px 3px"></div>
+                    <div style="position:absolute;right:0;top:2px;width:5px;height:5px;border:1.8px solid #006241;border-radius:50%"></div>
+                  </div>
+                </div>
+                <div style="background:#fff;border:1px solid #E8EEEB;border-radius:4px 16px 16px 16px;padding:13px 15px;display:flex;gap:5px;align-items:center">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#9DBBAD;animation:vdBlink 1.3s infinite 0s"></span>
+                  <span style="width:7px;height:7px;border-radius:50%;background:#9DBBAD;animation:vdBlink 1.3s infinite .2s"></span>
+                  <span style="width:7px;height:7px;border-radius:50%;background:#9DBBAD;animation:vdBlink 1.3s infinite .4s"></span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <sc-if value="{{ showPeek }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ toggleOrder }}" style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border:none;border-top:1px solid #EAF0ED;background:#F1F8F5;cursor:pointer;text-align:left">
+            <span style="display:flex;align-items:center;gap:9px">
+              <span style="min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#006241;color:#fff;font:700 11px Inter;display:inline-flex;align-items:center;justify-content:center">{{ order.count }}</span>
+              <span style="font:600 13px Inter;color:#1E3932">{{ order.peekLabel }}</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:8px;font:700 14px Inter;color:#006241">{{ order.totalStr }}<span style="color:#7B8A83;font-size:11px">▲</span></span>
+          </button>
+        </sc-if>
+
+        <div style="flex:none;border-top:1px solid #EAF0ED;background:#fff;padding:13px 18px">
+          <div style="display:flex;align-items:flex-end;gap:9px;background:#F4F8F6;border:1px solid #E3ECE7;border-radius:14px;padding:7px 7px 7px 15px">
+            <input value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Escríbele al barista…" style="flex:1;border:none;background:transparent;outline:none;font:400 14px Inter;color:#1E2A26;padding:7px 0"/>
+            <button onClick="{{ onSend }}" style="flex:none;width:38px;height:38px;border-radius:11px;border:none;background:#006241;color:#fff;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">↑</button>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showScrim }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ toggleOrder }}" style="position:absolute;inset:0;background:rgba(20,40,30,.32);z-index:30"></div>
+      </sc-if>
+
+      <div style="{{ orderWrapperStyle }}">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 13px;border-bottom:1px solid #EEF2F0">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="font:700 15px Inter;color:#1E3932">Tu orden</span>
+            <span style="{{ order.pillStyle }}">{{ order.statusLabel }}</span>
+          </div>
+          <sc-if value="{{ showCloseOrder }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ toggleOrder }}" style="border:none;background:#F0F4F2;width:28px;height:28px;border-radius:8px;cursor:pointer;color:#5B6B64;font-size:15px">✕</button>
+          </sc-if>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:14px 16px;min-height:0">
+          <sc-if value="{{ order.isEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="height:100%;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px">
+              <div style="width:66px;height:66px;border-radius:50%;background:#F1F8F5;display:flex;align-items:center;justify-content:center;margin-bottom:14px">
+                <div style="position:relative;width:26px;height:22px">
+                  <div style="position:absolute;left:0;top:2px;width:20px;height:17px;border:2px solid #B7CCC1;border-radius:2px 2px 6px 6px"></div>
+                  <div style="position:absolute;right:0;top:5px;width:9px;height:9px;border:2px solid #B7CCC1;border-radius:50%"></div>
+                </div>
+              </div>
+              <div style="font:600 14px Inter;color:#46544D">Tu orden está vacía</div>
+              <div style="font-size:12.5px;color:#90A099;margin-top:5px;line-height:1.5;max-width:200px">Pídele algo al barista y lo verás aparecer aquí en tiempo real.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ order.hasItems }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <sc-for list="{{ order.items }}" as="it" hint-placeholder-count="2">
+                <div style="display:flex;gap:11px;padding:12px 0;border-bottom:1px solid #F1F5F3">
+                  <div style="{{ it.phStyle }};flex:none;width:46px;height:46px;border-radius:11px"></div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;justify-content:space-between;gap:8px">
+                      <span style="font:600 13.5px Inter;color:#1E2A26">{{ it.name }}</span>
+                      <span style="font:700 13px Inter;color:#1E3932;white-space:nowrap">{{ it.lineStr }}</span>
+                    </div>
+                    <div style="font-size:11.5px;color:#82918A;margin-top:2px">{{ it.customLabel }}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                      <div style="display:flex;align-items:center;gap:0;border:1px solid #E0E8E4;border-radius:9px;overflow:hidden">
+                        <button onClick="{{ it.onDec }}" style="width:26px;height:26px;border:none;background:#fff;cursor:pointer;color:#46544D;font-size:15px">−</button>
+                        <span style="min-width:24px;text-align:center;font:600 12.5px Inter;color:#1E2A26">{{ it.qty }}</span>
+                        <button onClick="{{ it.onInc }}" style="width:26px;height:26px;border:none;background:#fff;cursor:pointer;color:#46544D;font-size:15px">+</button>
+                      </div>
+                      <button onClick="{{ it.onRemove }}" style="border:none;background:transparent;color:#B5482F;font:500 12px Inter;cursor:pointer;padding:4px 6px">Quitar</button>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ order.hasItems }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;border-top:1px solid #EEF2F0;padding:14px 16px 16px;background:#fff">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#82918A;margin-bottom:5px"><span>Subtotal · {{ order.count }} bebidas</span><span>{{ order.totalStr }}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:13px"><span style="font:700 15px Inter;color:#1E3932">Total</span><span style="font:700 19px Inter;color:#006241">{{ order.totalStr }}</span></div>
+
+            <sc-if value="{{ order.canConfirmBtn }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ confirmOrder }}" style="width:100%;padding:13px;border:none;border-radius:12px;background:#006241;color:#fff;font:700 14px Inter;cursor:pointer">Confirmar orden</button>
+            </sc-if>
+            <sc-if value="{{ order.canPayBtn }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ payOrder }}" style="width:100%;padding:13px;border:none;border-radius:12px;background:#006241;color:#fff;font:700 14px Inter;cursor:pointer">Pagar {{ order.totalStr }}</button>
+            </sc-if>
+            <sc-if value="{{ order.canNewBtn }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ newOrder }}" style="width:100%;padding:13px;border:none;border-radius:12px;background:#006241;color:#fff;font:700 14px Inter;cursor:pointer">Nueva orden</button>
+            </sc-if>
+            <sc-if value="{{ order.canCancelBtn }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ cancelOrder }}" style="width:100%;margin-top:8px;padding:11px;border:1px solid #E6CFC9;border-radius:12px;background:#fff;color:#B5482F;font:600 13px Inter;cursor:pointer">Cancelar orden</button>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;background:rgba(20,40,30,.42);z-index:90;display:flex;align-items:flex-end;justify-content:center;padding:0">
+      <div onClick="{{ stop }}" style="width:100%;max-width:560px;max-height:84vh;background:#fff;border-radius:22px 22px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -20px 60px rgba(20,40,30,.25)">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid #EEF2F0">
+          <div>
+            <div style="font-family:'Instrument Serif',serif;font-size:21px;color:#1E3932">Menú completo</div>
+            <div style="font:500 11.5px 'IBM Plex Mono',monospace;color:#90A099">87 bebidas · mostrando 10</div>
+          </div>
+          <button onClick="{{ closeMenu }}" style="border:none;background:#F0F4F2;width:32px;height:32px;border-radius:9px;cursor:pointer;color:#5B6B64;font-size:16px">✕</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:8px 14px 18px">
+          <sc-for list="{{ menuDrinks }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;gap:12px;align-items:center;padding:11px 6px;border-bottom:1px solid #F4F7F5">
+              <div style="{{ d.phStyle }};flex:none;width:50px;height:50px;border-radius:12px"></div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font:600 14px Inter;color:#1E2A26">{{ d.name }}</span>
+                  <span style="{{ d.badgeStyle }}">{{ d.badgeLabel }}</span>
+                </div>
+                <div style="font-size:12px;color:#82918A;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.desc }}</div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <span style="font:700 13.5px Inter;color:#006241">{{ d.priceStr }}</span>
+                <button onClick="{{ d.onAdd }}" style="padding:6px 13px;border:1px solid #CFE0D7;border-radius:9px;background:#F1F8F5;color:#006241;font:600 12px Inter;cursor:pointer">Agregar</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ successOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(20,40,30,.45);z-index:95;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="width:100%;max-width:400px;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 24px 70px rgba(20,40,30,.3);animation:vdUp .3s ease both">
+        <div style="background:#006241;padding:30px 24px 26px;text-align:center;position:relative">
+          <div style="width:62px;height:62px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 13px"><span style="color:#006241;font-size:30px;font-weight:700">✓</span></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:24px;color:#fff">¡Pago confirmado!</div>
+          <div style="font-size:13px;color:#BFE0D0;margin-top:4px">Tu pedido está en preparación · ~6 min</div>
+        </div>
+        <div style="padding:18px 22px 8px">
+          <sc-for list="{{ order.items }}" as="it" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #F4F7F5">
+              <span style="font-size:13px;color:#46544D">{{ it.qty }}× {{ it.name }} <span style="color:#9AA8A1">· {{ it.sizeLabel }}</span></span>
+              <span style="font:600 13px Inter;color:#1E3932">{{ it.lineStr }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:13px 0 4px">
+            <span style="font:700 15px Inter;color:#1E3932">Total pagado</span>
+            <span style="font:700 19px Inter;color:#006241">{{ order.totalStr }}</span>
+          </div>
+        </div>
+        <div style="padding:6px 22px 22px"><button onClick="{{ newOrder }}" style="width:100%;padding:13px;border:none;border-radius:12px;background:#006241;color:#fff;font:700 14px Inter;cursor:pointer">Hacer otro pedido</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:820}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.messagesRef = React.createRef();
+    this.timers = [];
+    this.idc = 1;
+    this.DRINKS = [
+      {id:'latte', name:'Caffè Latte', price:4.75, temp:'hot', t1:'#B08968', t2:'#9C7857', desc:'Espresso oscuro y cremoso con leche vaporizada y una capa ligera de espuma.'},
+      {id:'americano', name:'Americano', price:3.75, temp:'hot', t1:'#4A3728', t2:'#3D2C20', desc:'Shots de espresso con agua caliente; cuerpo intenso y limpio.'},
+      {id:'cappuccino', name:'Cappuccino', price:4.75, temp:'hot', t1:'#C0A080', t2:'#A98B6B', desc:'Espresso con leche vaporizada y una corona generosa de espuma.'},
+      {id:'caramelmac', name:'Caramel Macchiato', price:5.25, temp:'hot', t1:'#C99060', t2:'#B57E50', desc:'Leche vaporizada con vainilla, espresso y un toque de caramelo.'},
+      {id:'flatwhite', name:'Flat White', price:4.95, temp:'hot', t1:'#CBB79A', t2:'#B7A186', desc:'Ristretto suave con microespuma de leche aterciopelada.'},
+      {id:'mochafrap', name:'Mocha Frappuccino', price:5.45, temp:'iced', t1:'#5B4636', t2:'#4A382B', desc:'Café batido con salsa de mocha y leche, coronado con crema.'},
+      {id:'caramelfrap', name:'Caramel Frappuccino', price:5.25, temp:'iced', t1:'#BE8A5A', t2:'#A9784B', desc:'Café batido con caramelo y leche, con crema y drizzle.'},
+      {id:'vanillalatte', name:'Vanilla Latte', price:4.95, temp:'hot', t1:'#C7AE8C', t2:'#B59B79', desc:'Espresso con leche vaporizada y jarabe de vainilla.'},
+      {id:'icedcoffee', name:'Iced Coffee', price:3.45, temp:'iced', t1:'#7A5C46', t2:'#664B39', desc:'Café recién hecho enfriado, servido sobre hielo.'},
+      {id:'coldbrew', name:'Cold Brew', price:4.25, temp:'iced', t1:'#4F3A2C', t2:'#412F24', desc:'Extracción en frío por 20 horas; suave y dulce natural.'}
+    ];
+    this.SIZE_META = {tall:{label:'Tall',oz:'12 oz'}, grande:{label:'Grande',oz:'16 oz'}, venti:{label:'Venti',oz:'20 oz'}};
+    this.MILK = [['oat','Avena'],['almond','Almendra'],['whole','Entera'],['2% milk','2%'],['coconut','Coco'],['soy','Soya']];
+    this.SYRUP = [['vanilla','Vainilla'],['caramel','Caramelo'],['hazelnut','Avellana']];
+    this.MILK_L = {oat:'Avena',almond:'Almendra',whole:'Entera','2% milk':'2%',coconut:'Coco',soy:'Soya'};
+    this.SYRUP_L = {vanilla:'Vainilla',caramel:'Caramelo',hazelnut:'Avellana'};
+    this.state = {
+      device:'desktop', layout:'sidebar',
+      messages:[], typing:false, input:'',
+      cards:{}, order:{items:[], status:'empty'},
+      orderOpen:false, successOpen:false, menuOpen:false
+    };
+  }
+
+  componentDidMount(){ this.boot(); }
+  componentWillUnmount(){ this.timers.forEach(clearTimeout); }
+  componentDidUpdate(){ const el=this.messagesRef.current; if(el) el.scrollTop=el.scrollHeight; }
+
+  fmtTime(){ const d=new Date(); return (''+d.getHours()).padStart(2,'0')+':'+(''+d.getMinutes()).padStart(2,'0'); }
+  drink(n){ return this.DRINKS.find(d=>d.name===n); }
+  addMsg(m){ this.setState(s=>({messages:[...s.messages, m]})); }
+
+  boot(){
+    this.setState({messages:[{
+      id:this.idc++, role:'assistant', type:'text',
+      fullText:'¡Hola! Soy tu barista en Verde. ¿Qué te preparo hoy?', shown:999,
+      replies:[{label:'Ver recomendaciones',action:'recommend'},{label:'Buscar una bebida',action:'search'},{label:'Ver menú completo',action:'menu'}],
+      time:this.fmtTime()
+    }]});
+  }
+
+  mk(o){ return {id:this.idc++, role:'assistant', type:o.type||'text', fullText:o.fullText||'', shown:0, cards:o.cards||null, isSearch:!!o.isSearch, skeleton:false, isError:!!o.isError, replies:o.replies||null, time:this.fmtTime()}; }
+
+  botSay(o){
+    this.setState({typing:true});
+    const t1=setTimeout(()=>{
+      this.setState({typing:false});
+      if(o.isSearch){
+        const skId=this.idc++;
+        this.addMsg({id:skId, role:'assistant', type:'search', fullText:'', shown:0, cards:null, isSearch:true, skeleton:true, isError:false, replies:null, time:this.fmtTime()});
+        const t2=setTimeout(()=>{
+          this.setState(s=>({messages:s.messages.map(m=>m.id===skId?{...m, skeleton:false, fullText:o.fullText, shown:o.fullText.length, cards:o.cards, replies:o.replies}:m)}));
+        },1150); this.timers.push(t2);
+      } else {
+        const m=this.mk(o); this.addMsg(m);
+        if(m.fullText) this.reveal(m.id); else this.setState(s=>({messages:s.messages})); 
+      }
+    },650); this.timers.push(t1);
+  }
+
+  reveal(id){
+    const step=()=>{
+      let done=false;
+      this.setState(s=>({messages:s.messages.map(m=>{
+        if(m.id!==id) return m;
+        const ns=Math.min(m.fullText.length, m.shown+2);
+        if(ns>=m.fullText.length) done=true;
+        return {...m, shown:ns};
+      })}));
+      if(!done){ const t=setTimeout(step,16); this.timers.push(t); }
+    };
+    step();
+  }
+
+  pushUser(text){ this.addMsg({id:this.idc++, role:'user', type:'text', fullText:text, shown:999, cards:null, replies:null, time:this.fmtTime()}); }
+
+  clickReply(label, action){ this.pushUser(label); const t=setTimeout(()=>this.handleAction(action),280); this.timers.push(t); }
+
+  handleAction(a){
+    if(a==='recommend') return this.botSay({type:'cards', fullText:'Estas son algunas de mis favoritas hoy:', cards:[{name:'Caffè Latte'},{name:'Caramel Macchiato'},{name:'Cold Brew'}], replies:[{label:'Algo frío',action:'cold'},{label:'Buscar otra cosa',action:'search'},{label:'Ver menú completo',action:'menu'}]});
+    if(a==='cold') return this.botSay({type:'cards', fullText:'Para algo frío, te recomiendo estas:', cards:[{name:'Iced Coffee'},{name:'Cold Brew'},{name:'Caramel Frappuccino'}], replies:[{label:'Ver menú completo',action:'menu'}]});
+    if(a==='search') return this.botSay({isSearch:true, fullText:'Encontré estas opciones con caramelo:', cards:[{name:'Caramel Macchiato',score:0.96},{name:'Caramel Frappuccino',score:0.93},{name:'Vanilla Latte',score:0.81}], replies:[{label:'Ver menú completo',action:'menu'}]});
+    if(a==='menu'){ this.setState({menuOpen:true}); return this.botSay({fullText:'Te abrí el menú completo con nuestras 87 bebidas. Toca cualquiera para agregarla.'}); }
+    if(a==='confirm'){ if(this.state.order.items.length) return this.confirmOrder(); return this.botSay({fullText:'Tu orden está vacía. Agreguemos algo primero.', replies:[{label:'Ver recomendaciones',action:'recommend'}]}); }
+    if(a==='pay') return this.payOrder();
+    if(a==='cancel') return this.cancelOrder();
+    if(a==='new') return this.newOrder();
+    if(a==='retry') return this.handleAction('recommend');
+  }
+
+  setCard(key, field, val){
+    this.setState(s=>{
+      const cur=s.cards[key]||{size:'grande',milk:null,syrup:null};
+      const nv=(field!=='size' && cur[field]===val)?null:val;
+      return {cards:{...s.cards, [key]:{...cur,[field]:nv}}};
+    });
+  }
+
+  addItem(drink, sel){
+    this.setState(s=>{
+      let items=s.order.items.slice();
+      let status=s.order.status;
+      if(status==='completed'||status==='cancelled'){ items=[]; }
+      const sig=drink.id+'|'+sel.size+'|'+(sel.milk||'')+'|'+(sel.syrup||'');
+      const ex=items.find(i=>i.sig===sig);
+      if(ex){ ex.qty+=1; } else {
+        items.push({sig, drinkId:drink.id, name:drink.name, size:sel.size, qty:1, unit:drink.price, milk:sel.milk||null, syrup:sel.syrup||null});
+      }
+      return {order:{items, status:'pending'}};
+    });
+  }
+
+  addFromCard(key, name){
+    const d=this.drink(name);
+    const sel=this.state.cards[key]||{size:'grande',milk:null,syrup:null};
+    this.addItem(d, sel);
+    const sz=this.SIZE_META[sel.size].label;
+    const milk=sel.milk?(' con leche de '+this.MILK_L[sel.milk].toLowerCase()):'';
+    this.botSay({fullText:'¡Listo! Agregué un '+name+' '+sz.toLowerCase()+milk+' a tu orden.', replies:[{label:'Agregar otra bebida',action:'recommend'},{label:'Confirmar orden',action:'confirm'}]});
+  }
+
+  addFromMenu(name){
+    const d=this.drink(name);
+    this.addItem(d, {size:'grande', milk:null, syrup:null});
+    this.setState({menuOpen:false});
+    this.botSay({fullText:'¡Listo! Agregué un '+name+' grande a tu orden.', replies:[{label:'Agregar otra bebida',action:'recommend'},{label:'Confirmar orden',action:'confirm'}]});
+  }
+
+  changeQty(idx, d){
+    this.setState(s=>{
+      const items=s.order.items.slice();
+      items[idx]={...items[idx], qty:items[idx].qty+d};
+      let status=s.order.status;
+      const filtered=items.filter(i=>i.qty>0);
+      if(filtered.length===0) status='empty';
+      return {order:{items:filtered, status}};
+    });
+  }
+  removeItem(idx){
+    this.setState(s=>{
+      const items=s.order.items.filter((_,i)=>i!==idx);
+      return {order:{items, status: items.length?s.order.status:'empty'}};
+    });
+  }
+
+  confirmOrder(){ this.setState(s=>({order:{...s.order, status:'confirmed'}})); this.botSay({fullText:'Tu orden está confirmada. ¿Procedo con el pago?', replies:[{label:'Pagar ahora',action:'pay'},{label:'Cancelar orden',action:'cancel'}]}); }
+  payOrder(){ this.setState(s=>({order:{...s.order, status:'completed'}, successOpen:true})); this.botSay({fullText:'¡Pago procesado! Tu pedido está en preparación.'}); }
+  cancelOrder(){ this.setState(s=>({order:{...s.order, status:'cancelled'}})); this.botSay({fullText:'Cancelé tu orden. ¿Quieres empezar de nuevo?', replies:[{label:'Nueva orden',action:'new'}]}); }
+  newOrder(){ this.setState({order:{items:[], status:'empty'}, successOpen:false, menuOpen:false, orderOpen:false}); this.botSay({fullText:'Empecemos de nuevo. ¿Qué te preparo?', replies:[{label:'Ver recomendaciones',action:'recommend'},{label:'Buscar una bebida',action:'search'},{label:'Ver menú completo',action:'menu'}]}); }
+
+  send(){
+    const v=(this.state.input||'').trim();
+    if(!v) return;
+    this.setState({input:''});
+    this.pushUser(v);
+    const lc=v.toLowerCase();
+    let action='recommend';
+    if(lc.includes('menú')||lc.includes('menu')) action='menu';
+    else if(lc.includes('caramelo')||lc.includes('busca')||lc.includes('buscar')) action='search';
+    else if(lc.includes('frío')||lc.includes('frio')||lc.includes('helad')) action='cold';
+    else if(lc.includes('confirm')) action='confirm';
+    else if(lc.includes('cancel')) action='cancel';
+    else if(lc.includes('pag')) action='pay';
+    const t=setTimeout(()=>this.handleAction(action),280); this.timers.push(t);
+  }
+
+  simulateError(){ this.addMsg({id:this.idc++, role:'assistant', type:'error', fullText:'', shown:0, cards:null, isError:true, replies:[{label:'Reintentar',action:'retry'}], time:this.fmtTime()}); }
+  resetDemo(){ this.timers.forEach(clearTimeout); this.timers=[]; this.idc=1; this.setState({messages:[], typing:false, input:'', cards:{}, order:{items:[], status:'empty'}, orderOpen:false, successOpen:false, menuOpen:false}, ()=>this.boot()); }
+
+  // ---- view helpers ----
+  segStyle(active){ return 'padding:7px 13px;border:none;border-radius:8px;font:600 12px Inter;cursor:pointer;background:'+(active?'#006241':'transparent')+';color:'+(active?'#fff':'#5B6B64'); }
+  phStyle(d){ return 'background:repeating-linear-gradient(135deg,'+d.t1+','+d.t1+' 8px,'+d.t2+' 8px,'+d.t2+' 16px)'; }
+  badge(d){ return d.temp==='hot' ? {label:'Caliente', style:'position:absolute;top:9px;left:9px;background:#F4E7D6;color:#A66A28;font:600 10px Inter;padding:3px 8px;border-radius:999px'} : {label:'Frío', style:'position:absolute;top:9px;left:9px;background:#E2EEF2;color:#2E6E80;font:600 10px Inter;padding:3px 8px;border-radius:999px'}; }
+  menuBadge(d){ return d.temp==='hot' ? {label:'Caliente', style:'background:#F4E7D6;color:#A66A28;font:600 9.5px Inter;padding:2px 7px;border-radius:999px'} : {label:'Frío', style:'background:#E2EEF2;color:#2E6E80;font:600 9.5px Inter;padding:2px 7px;border-radius:999px'}; }
+  chipStyle(sel){ return 'padding:7px 11px;border-radius:999px;font:500 12px Inter;cursor:pointer;border:1px solid '+(sel?'#006241':'#DCE7E1')+';background:'+(sel?'#006241':'#fff')+';color:'+(sel?'#fff':'#46544D')+';white-space:nowrap'; }
+  sizeStyle(sel){ return 'flex:1;padding:7px 4px;border-radius:11px;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;border:1px solid '+(sel?'#006241':'#DCE7E1')+';background:'+(sel?'#EAF3EE':'#fff')+';color:'+(sel?'#006241':'#46544D'); }
+
+  cardVM(msgId, entry){
+    const d=this.drink(entry.name);
+    const key=msgId+'::'+d.id;
+    const sel=this.state.cards[key]||{size:'grande',milk:null,syrup:null};
+    const b=this.badge(d);
+    return {
+      name:d.name, desc:d.desc, priceStr:'$'+d.price.toFixed(2),
+      phStyle:this.phStyle(d), badgeLabel:b.label, badgeStyle:b.style,
+      hasScore: typeof entry.score==='number', scoreLabel: (typeof entry.score==='number'?('match '+Math.round(entry.score*100)+'%'):''),
+      sizes: Object.keys(this.SIZE_META).map(k=>({label:this.SIZE_META[k].label, oz:this.SIZE_META[k].oz, style:this.sizeStyle(sel.size===k), onClick:()=>this.setCard(key,'size',k)})),
+      milks: this.MILK.map(([k,l])=>({label:l, style:this.chipStyle(sel.milk===k), onClick:()=>this.setCard(key,'milk',k)})),
+      syrups: this.SYRUP.map(([k,l])=>({label:l, style:this.chipStyle(sel.syrup===k), onClick:()=>this.setCard(key,'syrup',k)})),
+      onAdd:()=>this.addFromCard(key, d.name)
+    };
+  }
+
+  orderVM(){
+    const o=this.state.order;
+    const total=o.items.reduce((a,i)=>a+i.unit*i.qty,0);
+    const count=o.items.reduce((a,i)=>a+i.qty,0);
+    const meta={
+      empty:{label:'Vacía', c:'#90A099', bg:'#F0F4F2'},
+      pending:{label:'Pendiente', c:'#B8772A', bg:'#FBF1E3'},
+      confirmed:{label:'Confirmada', c:'#006241', bg:'#E4F2EB'},
+      completed:{label:'Completada', c:'#1E3932', bg:'#E4F2EB'},
+      cancelled:{label:'Cancelada', c:'#C0432F', bg:'#FBE9E6'}
+    }[o.status];
+    return {
+      status:o.status, statusLabel:meta.label,
+      pillStyle:'font:600 10.5px Inter;padding:3px 9px;border-radius:999px;background:'+meta.bg+';color:'+meta.c,
+      isEmpty:o.items.length===0, hasItems:o.items.length>0,
+      count, totalStr:'$'+total.toFixed(2),
+      peekLabel: o.items.length? 'Ver tu orden' : 'Tu orden está vacía',
+      canConfirmBtn:o.status==='pending'&&o.items.length>0,
+      canPayBtn:o.status==='confirmed',
+      canCancelBtn:(o.status==='pending'||o.status==='confirmed')&&o.items.length>0,
+      canNewBtn:o.status==='completed'||o.status==='cancelled',
+      items:o.items.map((it,idx)=>{
+        const d=this.drink(it.name);
+        const parts=[this.SIZE_META[it.size].label];
+        if(it.milk) parts.push('Leche '+this.MILK_L[it.milk].toLowerCase());
+        if(it.syrup) parts.push(this.SYRUP_L[it.syrup]);
+        return {name:it.name, qty:it.qty, sizeLabel:this.SIZE_META[it.size].label, customLabel:parts.join(' · '), lineStr:'$'+(it.unit*it.qty).toFixed(2), phStyle:this.phStyle(d), onInc:()=>this.changeQty(idx,1), onDec:()=>this.changeQty(idx,-1), onRemove:()=>this.removeItem(idx)};
+      })
+    };
+  }
+
+  renderVals(){
+    const isDesktop=this.state.device==='desktop';
+    const isMobile=!isDesktop;
+    const isSidebar=this.state.layout==='sidebar';
+    const isDrawer=!isSidebar;
+    const oo=this.state.orderOpen;
+
+    const appShellStyle = isMobile
+      ? 'width:392px;height:792px;background:#fff;border-radius:30px;box-shadow:0 30px 80px rgba(20,40,30,.22),0 0 0 9px #1c2622;display:flex;flex-direction:column;overflow:hidden'
+      : 'width:100%;max-width:1280px;height:768px;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(20,40,30,.16);display:flex;flex-direction:column;overflow:hidden';
+
+    let orderWrapperStyle;
+    if(isDesktop&&isSidebar) orderWrapperStyle='position:relative;width:364px;flex:none;display:flex;flex-direction:column;background:#fff;border-left:1px solid #E7EEEA;height:100%';
+    else if(isDesktop&&isDrawer) orderWrapperStyle='position:absolute;top:0;right:0;bottom:0;width:386px;display:flex;flex-direction:column;background:#fff;border-left:1px solid #E7EEEA;box-shadow:-16px 0 50px rgba(20,40,30,.12);transform:translateX('+(oo?'0':'101%')+');transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:40';
+    else orderWrapperStyle='position:absolute;left:0;right:0;bottom:0;max-height:80%;display:flex;flex-direction:column;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -16px 50px rgba(20,40,30,.18);transform:translateY('+(oo?'0':'101%')+');transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:40';
+
+    const msgs=this.state.messages.map((m,idx)=>{
+      const isLast=idx===this.state.messages.length-1;
+      const shown=Math.min(m.shown, m.fullText.length);
+      const fullShown=shown>=m.fullText.length;
+      return {
+        isUser:m.role==='user', isBot:m.role==='assistant',
+        text: m.role==='user'? m.fullText : m.fullText.slice(0,shown),
+        time:m.time,
+        hasText: m.role==='assistant' && !!m.fullText,
+        bubbleStyle:'background:#fff;border:1px solid #E8EEEB;border-radius:4px 16px 16px 16px;padding:11px 14px;font-size:14px;line-height:1.55;color:#26302C;max-width:600px;box-shadow:0 1px 2px rgba(20,40,30,.04);display:inline-block',
+        skeleton:!!m.skeleton,
+        isError:!!m.isError,
+        hasCards: !m.skeleton && Array.isArray(m.cards) && m.cards.length>0,
+        cards: (!m.skeleton && Array.isArray(m.cards))? m.cards.map(e=>this.cardVM(m.id,e)) : [],
+        showReplies: !m.skeleton && Array.isArray(m.replies) && m.replies.length>0 && isLast && !this.state.typing && fullShown,
+        replies: (Array.isArray(m.replies)? m.replies : []).map(r=>({label:r.label, onClick:()=>this.clickReply(r.label, r.action)}))
+      };
+    });
+
+    return {
+      // chrome
+      setDesktop:()=>this.setState({device:'desktop'}),
+      setMobile:()=>this.setState({device:'mobile', orderOpen:false}),
+      setSidebar:()=>this.setState({layout:'sidebar'}),
+      setDrawer:()=>this.setState({layout:'drawer', orderOpen:false}),
+      simulateError:()=>this.simulateError(),
+      resetDemo:()=>this.resetDemo(),
+      devDesktopStyle:this.segStyle(isDesktop), devMobileStyle:this.segStyle(isMobile),
+      laySidebarStyle:this.segStyle(isSidebar), layDrawerStyle:this.segStyle(isDrawer),
+      // layout
+      appShellStyle,
+      appBodyStyle:'flex:1;display:flex;position:relative;overflow:hidden;min-height:0',
+      chatColStyle:'flex:1;display:flex;flex-direction:column;min-width:0;background:#FBFDFC',
+      chatInnerStyle: isDrawer&&isDesktop ? 'max-width:720px;margin:0 auto' : '',
+      orderWrapperStyle,
+      showHeaderCart: isDesktop&&isDrawer,
+      showPeek: isMobile,
+      showScrim: (isDrawer||isMobile)&&oo,
+      showCloseOrder: (isDrawer||isMobile),
+      toggleOrder:()=>this.setState(s=>({orderOpen:!s.orderOpen})),
+      // chat
+      msgs, typing:this.state.typing, messagesRef:this.messagesRef,
+      input:this.state.input,
+      onInput:(e)=>this.setState({input:e.target.value}),
+      onKey:(e)=>{ if(e.key==='Enter'){ e.preventDefault(); this.send(); } },
+      onSend:()=>this.send(),
+      // order
+      order:this.orderVM(),
+      confirmOrder:()=>this.confirmOrder(), payOrder:()=>this.payOrder(), cancelOrder:()=>this.cancelOrder(), newOrder:()=>this.newOrder(),
+      // modals
+      successOpen:this.state.successOpen,
+      menuOpen:this.state.menuOpen, closeMenu:()=>this.setState({menuOpen:false}),
+      stop:(e)=>{ e.stopPropagation(); },
+      menuDrinks:this.DRINKS.map(d=>{ const b=this.menuBadge(d); return {name:d.name, desc:d.desc, priceStr:'$'+d.price.toFixed(2), phStyle:this.phStyle(d), badgeLabel:b.label, badgeStyle:b.style, onAdd:()=>this.addFromMenu(d.name)}; })
+    };
+  }
+}
+</script>
+</body>
+</html>
